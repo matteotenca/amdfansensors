@@ -12,13 +12,13 @@
 //#include <vector>
 
 int main(const int argc, char* argv[]) {
-	bool showVram = false, showTemp = false, showVoltage = false, showSystemRam = false;
-	bool showZeroRPM = false, toggleZeroRPM = false, showRamp = false, setRamp = false;
-	bool setDefaultRamp = false, showVoltageOffset = false, setVoltageOffset = false;
-	bool help = false, defaultMode = true, showTotalRam = false;
-	adlx_int voltageOffset = 0;  // NEW: stores voltage offset from command line
 	try {
 		GpuManager manager;
+		bool showVram = false, showTemp = false, showVoltage = false, showSystemRam = false;
+		bool showZeroRPM = false, toggleZeroRPM = false, showRamp = false, setRamp = false;
+		bool setDefaultRamp = false, showVoltageOffset = false, setVoltageOffset = false;
+		bool help = false, defaultMode = true, showTotalRam = false;
+		adlx_int voltageOffset = 0;  // NEW: stores voltage offset from command line
 		for (int i = 1; i < argc; ++i) {
 			std::string arg = argv[i];
 			if (arg == "--show-vram" || arg == "-r") { showVram = true; defaultMode = false; }
@@ -32,9 +32,9 @@ int main(const int argc, char* argv[]) {
 			else if (arg == "--set-fan-ramp" || arg == "-p") { setRamp = true; defaultMode = false; }
 			else if (arg == "--set-default-ramp" || arg == "-d") { setDefaultRamp = true; defaultMode = false; }
 			else if (arg == "--show-v-offset" || arg == "-e") { showVoltageOffset = true; defaultMode = false; }
-			else if ((arg == "--set-v-offset" || arg == "-v") ||
-				(arg.substr(0, 15) == "--set-v-offset=") ||
-				(arg.substr(0, 3) == "-v=") && ! showVoltageOffset && ! help) {
+			else if (arg == "--set-v-offset" || arg == "-v" ||
+				arg.substr(0, 15) == "--set-v-offset=" ||
+				arg.substr(0, 3) == "-v=" && ! showVoltageOffset) {
 				// Extract the voltage value from the argument
 				size_t equalsPos = arg.find('=');
 

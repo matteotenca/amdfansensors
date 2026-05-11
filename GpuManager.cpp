@@ -1,11 +1,12 @@
+// ReSharper disable CppDFANullDereference
 #include "GpuManager.h"
+#include "ADLXHelper.h"
+#include <IPerformanceMonitoring2.h>
 #include <stdexcept>
 #include <iostream>
-#include <windows.h> // For GlobalMemoryStatusEx
 #include <string>
 
-
-GpuManager::GpuManager() : m_statusInfo{} {
+GpuManager::GpuManager() {
     //m_adlxHelp = g_ADLX;
     ADLX_RESULT res = g_ADLX.Initialize();
     if (ADLX_FAILED(res)) throw std::runtime_error("Failed to initialize ADLX");
@@ -32,7 +33,7 @@ GpuManager::GpuManager() : m_statusInfo{} {
 
     IADLXAllMetricsPtr allMetrics;
     res = perfMonitoringServices->GetCurrentAllMetrics(&allMetrics);
-    cleanUp(res);
+    cleanUp(res, "Get current all metrics");
 
     res = allMetrics->GetGPUMetrics(m_oneGPU, &m_gpuMetrics);
     cleanUp(res);
@@ -48,12 +49,12 @@ GpuManager::GpuManager() : m_statusInfo{} {
 
     IADLXInterfacePtr manualFanTuningIfc;
     res = m_gpuTuningService->GetManualFanTuning(m_oneGPU, &manualFanTuningIfc);
-    cleanUp(res);
+    cleanUp(res, "Get manual fan tuning interface");
     m_manualFanTuning = static_cast<IADLXManualFanTuningPtr>(manualFanTuningIfc);
 
     IADLXInterfacePtr manualGFXTuningIfc;
     res = m_gpuTuningService->GetManualGFXTuning(m_oneGPU, &manualGFXTuningIfc);
-    cleanUp(res);
+    cleanUp(res, "Get manual graphics tuning interface");
     m_manualGFXTuning2 = static_cast<IADLXManualGraphicsTuning2Ptr>(manualGFXTuningIfc);
 
     // Populate GpuStatusInfo struct - read system RAM once during initialization
@@ -89,18 +90,12 @@ GpuManager::GpuManager() : m_statusInfo{} {
 
 }
 
-GpuManager::~GpuManager() {//  = default;
-    // Always terminate if ADLXHelper was partially initialized
-    // if (m_adlxHelp) {
-    //ADLX_RESULT res = g_ADLX.Terminate();
-    //cleanUp(res, "Deconstructor of GpuManager");
-    // }
-}
+GpuManager::~GpuManager() = default;
 
-void GpuManager::cleanUp(ADLX_RESULT res, const char* operation) {
+void GpuManager::cleanUp(ADLX_RESULT res, const char* msg) {
     if (ADLX_FAILED(res)) {
         throw std::runtime_error(std::string("ADLX Error: ") + std::to_string(res) + " - " +
-            (operation ? operation : "Operation") + " failed");
+            (msg ? msg : "Operation") + " failed");
     }
 }
 
@@ -169,7 +164,7 @@ void GpuManager::ShowTotalSystemMemory() const {
 //    std::cout << "Current GPU clock voltage offset: " << volt << " mV" << std::endl;
 //}
 
-void GpuManager::SetGPUStates(adlx_int voltage) {
+void GpuManager::SetGPUStates(adlx_int voltage) const {
     adlx_int currentVolt = 0;
     ADLX_RESULT res = m_manualGFXTuning2->GetGPUVoltage(&currentVolt);
     cleanUp(res);
@@ -193,7 +188,7 @@ void GpuManager::SetGPUStates(adlx_int voltage) {
     }
 }
 
-void GpuManager::SetVoltageOffsetFromCLI(adlx_int voltage) {
+void GpuManager::SetVoltageOffsetFromCLI(adlx_int voltage) const {
     if (voltage == 0) {
         std::cout << "Voltage offset was not specified or set to 0 (no change)." << std::endl;
         return;
@@ -213,7 +208,7 @@ adlx_int GpuManager::GetVoltageOffset() const {
     return m_statusInfo.voltageOffsetMV;
 }
 
-void GpuManager::ShowGetAndSetFan(bool setRamp, bool defaultRamp) {
+void GpuManager::ShowGetAndSetFan(bool setRamp, bool defaultRamp) const {
     ADLX_IntRange fanSpeedRange, fanTemperatureRange;
     ADLX_RESULT res = m_manualFanTuning->GetFanTuningRanges(&fanSpeedRange, &fanTemperatureRange);
     cleanUp(res);
@@ -328,7 +323,7 @@ void GpuManager::ShowGPUMemoryTemperature() const {
                 std::cout << "The GPU temperature is: " << temperature << "°C" << std::endl;
             res = gpuMetrics1->GPUFanSpeed(&fanSpeed);
             if (ADLX_SUCCEEDED(res))
-                std::cout << "The GPU fan speede is: " << fanSpeed << std::endl;
+                std::cout << "The GPU fan speed is: " << fanSpeed << std::endl;
         }
         else {
             std::cout << "GPU memory temperature reading not supported." << std::endl;

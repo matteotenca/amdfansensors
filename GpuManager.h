@@ -2,12 +2,10 @@
 #define GPU_MANAGER_H
 #pragma once
 #include <ADLX.h>
-#include "ADLXHelper.h"
 #include <IGPUManualFanTuning.h>
 #include <IGPUTuning.h>
 #include <IPerformanceMonitoring.h>
 #include <IGPUManualGFXTuning.h>
-#include <IPerformanceMonitoring2.h>
 
 class GpuManager {
 public:
@@ -39,10 +37,10 @@ public:
     void ToggleZeroRPM();                // Toggles ZeroRPM state
 
     // Tuning methods
-    void ShowGetAndSetFan(bool setRamp, bool defaultRamp);
-    void SetGPUStates(adlx_int voltage); // UPDATED: Added voltage parameter
+    void ShowGetAndSetFan(bool setRamp, bool defaultRamp) const;
+    void SetGPUStates(adlx_int voltage) const; // UPDATED: Added voltage parameter
     //void GetGPUStates() const;
-    void SetVoltageOffsetFromCLI(adlx_int voltage); // NEW: Added from CLI
+    void SetVoltageOffsetFromCLI(adlx_int voltage) const; // NEW: Added from CLI
     adlx_int GetVoltageOffset() const; // NEW: Getter for voltage offset
     IADLXManualGraphicsTuning2Ptr m_manualGFXTuning2;
     IADLXGPUMetricsSupportPtr m_gpuMetricsSupport;
@@ -58,8 +56,8 @@ public:
     GpuStatusInfo m_statusInfo; // Status information struct
 private:
     // Updated signature: accepts ADLX_RESULT and optional operation_name name
-    void cleanUp(ADLX_RESULT res, const char* operation_name = nullptr);
+    static void cleanUp(ADLX_RESULT res, const char* operation_name = nullptr);
 
-    
+
 };
 #endif // GPU_MANAGER_H
