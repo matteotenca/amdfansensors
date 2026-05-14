@@ -18,12 +18,45 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 // Window procedure - main message handler for the application window
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
-// DirectX device creation and cleanup functions
-bool CreateDeviceD3D(HWND hWnd);
-void CleanupDeviceD3D();
-void CreateRenderTarget();
-void CleanupRenderTarget();
+/**
+ * @brief Class responsible for managing the rendering context and game loop.
+ * Encapsulates DirectX resources (ID3D11Device*, etc.) and the main GUI logic.
+ */
+class GuiWindow {
+public:
+    // GuiWindow(HWND hWnd) : m_hWnd(hWnd),
+    //                        m_pSwapChain(nullptr),
+    //                        m_pd3dDevice(nullptr),
+    //                        m_pd3dDeviceContext(nullptr),
+    //                        m_mainRenderTargetView(nullptr) {}
 
-// Main window application entry point
-int OpenWin(GpuManager& manager, int refreshRateMs = 1000);
+    // Initialize DirectX, ImGui and the main loop resources.
+    bool Initialize(int refreshRateMs);
+
+    // Run the main application loop (handles messages and rendering).
+    void RunLoop() const;
+    int OpenWin(GpuManager& manager, int refreshRateMs);
+
+    // Clean up all allocated DirectX/ImGui resources.
+    ~GuiWindow();
+
+private:
+    HWND m_hWnd = nullptr;
+    ID3D11Device* m_pd3dDevice = nullptr;
+    ID3D11DeviceContext* m_pd3dDeviceContext = nullptr;
+    IDXGISwapChain* m_pSwapChain = nullptr;
+    ID3D11RenderTargetView* m_mainRenderTargetView = nullptr;
+    int refreshRateMs = 1000;
+
+    // Internal methods for DX setup/cleanup
+    bool CreateDeviceD3D();
+    void CreateRenderTarget();
+    void CleanupRenderTarget();
+    void CleanupDeviceD3D();
+};
+
+
+// Main window application entry point. Uses the GuiWindow class internally.
+// int OpenWin(GpuManager& manager, int refreshRateMs = 1000);
+
 #endif //AMDFANSENSORS_WINDOW_H

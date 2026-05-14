@@ -166,7 +166,8 @@ int main(const int argc, char* argv[]) {
 			else if (setVoltageOffset) manager.SetVoltageOffsetFromCLI(voltageOffset);  // Apply if not already done in defaultMode
 		}
 		if (enableGui) {
-			OpenWin(manager, refreshRateMs);
+			GuiWindow guiWindow;
+			guiWindow.OpenWin(manager, refreshRateMs);
 		}
 
 	}
