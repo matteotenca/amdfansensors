@@ -1,24 +1,34 @@
 // ReSharper disable CppDFANullDereference
-//#include "ADLXHelper.h"
+
 #include "AmdFanSensors.h"
-//#include "IPerformanceMonitoring.h"
-//#include "IPerformanceMonitoring2.h"
-//#include "IGPUTuning.h"
-//#include "IGPUManualFanTuning.h"
-//#include "IGPUManualGFXTuning.h"
+#include "Gui.h"
 #include <iostream>
 #include <string>
-//#include <windows.h>
-//#include <vector>
 
 int main(const int argc, char* argv[]) {
+	// return OpenWin();
 	try {
 		GpuManager manager;
-		bool showVram = false, showTemp = false, showVoltage = false, showSystemRam = false;
-		bool showZeroRPM = false, toggleZeroRPM = false, showRamp = false, setRamp = false;
-		bool setDefaultRamp = false, showVoltageOffset = false, setVoltageOffset = false;
-		bool help = false, defaultMode = true, showTotalRam = false;
+
+		bool showVram = false;
+		bool showTemp = false;
+		bool showVoltage = false;
+		bool showSystemRam = false;
+		bool showZeroRPM = false;
+		bool toggleZeroRPM = false;
+		bool showRamp = false;
+		bool setRamp = false;
+		bool setDefaultRamp = false;
+		bool showVoltageOffset = false;
+		bool setVoltageOffset = false;
+		bool help = false;
+		bool defaultMode = true;
+		bool showTotalRam = false;
+		bool enableGui = false;
+		int refreshRateMs = 1000;
+
 		adlx_int voltageOffset = 0;  // NEW: stores voltage offset from command line
+
 		for (int i = 1; i < argc; ++i) {
 			std::string arg = argv[i];
 			if (arg == "--show-vram" || arg == "-r") { showVram = true; defaultMode = false; }
@@ -58,17 +68,41 @@ int main(const int argc, char* argv[]) {
 						<< "Received: " << voltageOffset << " mV. "
 						<< "Using default value of 0 mV." << std::endl;
 					voltageOffset = 0;
-				}
-				else if (endptr == voltageStr.c_str()) {
+				} else if (endptr == voltageStr.c_str()) {
 					// VALIDATE: Ensure parsing was successful
 					std::cerr << "Error: Invalid voltage offset value: " << arg << std::endl;
 					voltageOffset = 0;
 				}
 				// If no equals sign and no value provided, keep default (0)
 
-				setVoltageOffset = true; defaultMode = false;
+				setVoltageOffset = true;
+				defaultMode = false;
 			}
 			else if (arg == "--show-total-ram" || arg == "-g") { showTotalRam = true; defaultMode = false; }
+			else if (arg == "--enable-gui" || arg == "-G") { enableGui = true; defaultMode = false; }
+			else if (arg == "--refresh-rate" || arg == "-a=" || arg.substr(0, 3) == "-a=" || arg.substr(0, 9) == "--refresh=") {
+				// Handle refresh rate parameter
+				size_t equalsPos = arg.find('=');
+				std::string refreshStr;
+				if (equalsPos != std::string::npos) {
+					refreshStr = arg.substr(equalsPos + 1);
+				} else {
+					refreshStr = "1000";
+				}
+
+				char* endptr = nullptr;
+				int newRefreshRate = static_cast<int>(strtol(refreshStr.c_str(), &endptr, 10));
+
+				// VALIDATE: Refresh rate must be between 100ms and 5000ms
+				if (newRefreshRate >= 100 && newRefreshRate <= 5000) {
+					refreshRateMs = newRefreshRate;
+				} else {
+					std::cerr << "Error: Refresh rate must be between 100ms and 5000ms. "
+						<< "Received: " << newRefreshRate << "ms. "
+						<< "Using default value of 1000ms." << std::endl;
+					refreshRateMs = 1000;
+				}
+			}
 		}
 
 		if (help) {
@@ -78,15 +112,18 @@ int main(const int argc, char* argv[]) {
 				<< "  -t, --show-temperature  Show GPU memory temperature (°C).\n"
 				<< "  -o, --show-voltage      Show GPU voltage (mV).\n"
 				<< "  -m, --show-system-ram   Show system RAM usage (MB).\n"
-				<< "  -e, --show-v-offset     Show voltage offset.\n"
-				<< "  -v, --set-v-offset=N    Set voltage offset to N mV (e.g., --v=-25).\n"
-				<< "                          Note: Only negative values are accepted!\n"
+				<< "  -z, --show-zero-rpm     Show ZeroRPM status.\n"
+				<< "  -s, --toggle-zero-rpm   Toggle ZeroRPM state.\n"
 				<< "  -f, --show-fan-ramp     Show fan ramp states.\n"
 				<< "  -p, --set-fan-ramp      Set fan ramp settings.\n"
 				<< "  -d, --set-default-ramp  Set fan to defaults.\n"
-				<< "  -z, --show-zero-rpm     Show ZeroRPM status.\n"
-				<< "  -s, --toggle-zero-rpm   Toggle ZeroRPM state.\n"
+				<< "  -e, --show-v-offset     Show voltage offset.\n"
+				<< "  -v=N, --set-v-offset=N  Set voltage offset to N mV (e.g., -v=-25).\n"
+				<< "                          Note: Only negative values are accepted!\n"
 				<< "  -g, --show-total-ram    Show total system RAM (MB).\n"
+				<< "  -G, --enable-gui        Enable the GUI (default: disabled).\n"
+				<< "  -a=N, --refresh-rate=N  Set refresh rate in milliseconds (e.g., --refresh-rate=500).\n"
+				<< "                          Range: 100ms to 5000ms (default: 1000ms).\n"
 				<< "  -h, --help              Show this help message." << std::endl;
 			return 0;
 		}
@@ -110,7 +147,7 @@ int main(const int argc, char* argv[]) {
 			manager.ShowGPUVRAM();
 			manager.ShowGPUMemoryTemperature();
 			manager.ShowGPUVoltage();
-			manager.ShowZeroRPMStatus();    // NEW: read from struct
+			manager.ShowZeroRPMStatus();
 			manager.ShowGetAndSetFan(false, false);
 			std::cout << "Current GPU clock voltage offset: " << manager.m_statusInfo.voltageOffsetMV << " mV" << std::endl;
 			//manager.GetGPUStates();
@@ -121,13 +158,17 @@ int main(const int argc, char* argv[]) {
 			if (showTemp) manager.ShowGPUMemoryTemperature();
 			if (showVoltage) manager.ShowGPUVoltage();
 			if (showSystemRam) manager.ShowSystemRAM();
-			if (showZeroRPM) manager.ShowZeroRPMStatus();         // NEW: read from struct
-			else if (toggleZeroRPM) manager.ToggleZeroRPM();      // NEW: toggle functionality
+			if (showZeroRPM) manager.ShowZeroRPMStatus();
+			else if (toggleZeroRPM) manager.ToggleZeroRPM();
 			if (showRamp) manager.ShowGetAndSetFan(false, false);
 			else if (setRamp || setDefaultRamp) manager.ShowGetAndSetFan(true, setDefaultRamp);
 			if (showVoltageOffset) std::cout << "Current GPU clock voltage offset: " << manager.m_statusInfo.voltageOffsetMV << " mV" << std::endl;
 			else if (setVoltageOffset) manager.SetVoltageOffsetFromCLI(voltageOffset);  // Apply if not already done in defaultMode
 		}
+		if (enableGui) {
+			OpenWin(manager, refreshRateMs);
+		}
+
 	}
 	catch (const std::exception& e) {
 		std::cerr << "Fatal Error: " << e.what() << std::endl;

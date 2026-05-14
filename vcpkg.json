@@ -1,5 +1,12 @@
 {
   "dependencies": [
-    "imgui"
+    {
+      "name": "imgui",
+      "features": [
+        "dx12-binding",
+        "win32-binding",
+        "dx11-binding"
+      ]
+    }
   ]
 }

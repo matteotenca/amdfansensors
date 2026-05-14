@@ -40,7 +40,7 @@
 //
 //    // Tuning methods
 //    void ShowGetAndSetFan(bool setRamp, bool defaultRamp);
-//    void SetGPUStates(adlx_int voltage); // UPDATED: Added voltage parameter
+//    void SetVoltageOffset(adlx_int voltage); // UPDATED: Added voltage parameter
 //    void GetGPUStates() const;
 //    void SetVoltageOffsetFromCLI(adlx_int voltage); // NEW: Added from CLI
 //    adlx_int GetVoltageOffset() const; // NEW: Getter for voltage offset

@@ -17,7 +17,15 @@ public:
         size_t totalSystemRamMB = 0;      // Total installed system RAM (MB)
         adlx_uint totalGPUMemoryMB = 0;   // GPU total VRAM (MB)
         adlx_bool zeroRPMEnabled = false; // Current ZeroRPM status
-        adlx_int voltageOffsetMV = 0;     // Current GPU voltage offset (mV)
+        mutable adlx_int voltageOffsetMV = 0;     // Current GPU voltage offset (mV)
+    };
+
+    struct GpuTemperatureInfo {
+        mutable adlx_double gpuTemperatureC = 0.0; // GPU temperature in Celsius
+        mutable adlx_double gpuMemoryTemperatureC = 0.0; // GPU memory temperature in Celsius
+        mutable adlx_double gpuHotspotTemperatureC = 0.0; // GPU hotspot temperature in Celsius
+        mutable adlx_int fanSpeed = 0; // GPU fan speed in RPM
+        mutable adlx_int vRam = 0; // GPU fan speed in RPM
     };
 
     //GpuManager(const GpuManager&) = delete;
@@ -28,6 +36,7 @@ public:
     // Monitoring methods - marked const as they don't modify state
     void ShowGPUVRAM() const;
     void ShowGPUMemoryTemperature() const;
+    void UpdateGpuTempStruct();
     void ShowGPUVoltage() const;
     void ShowSystemRAM() const;
     void ShowTotalSystemMemory() const;
@@ -38,7 +47,7 @@ public:
 
     // Tuning methods
     void ShowGetAndSetFan(bool setRamp, bool defaultRamp) const;
-    void SetGPUStates(adlx_int voltage) const; // UPDATED: Added voltage parameter
+    void SetVoltageOffset(adlx_int voltage) const; // UPDATED: Added voltage parameter
     //void GetGPUStates() const;
     void SetVoltageOffsetFromCLI(adlx_int voltage) const; // NEW: Added from CLI
     adlx_int GetVoltageOffset() const; // NEW: Getter for voltage offset
@@ -50,10 +59,12 @@ public:
 
     IADLXGPUTuningServicesPtr m_gpuTuningService;
     IADLXManualFanTuningPtr m_manualFanTuning;
+    IADLXPerformanceMonitoringServicesPtr m_perfMonitoringServices;
     //ADLXHelper m_adlxHelp;
     IADLXGPUPtr m_oneGPU;
     //adlx_uint m_totalVram;
     GpuStatusInfo m_statusInfo; // Status information struct
+    GpuTemperatureInfo m_temperatureInfo; // Temperature information struct
 private:
     // Updated signature: accepts ADLX_RESULT and optional operation_name name
     static void cleanUp(ADLX_RESULT res, const char* operation_name = nullptr);
