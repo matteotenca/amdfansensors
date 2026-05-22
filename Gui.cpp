@@ -206,7 +206,7 @@ void GuiWindow::RunLoop() const {
 
 
 // Main window application entry point. Now manages the object lifecycle.
-int GuiWindow::OpenWin(GpuManager& manager, int refreshRate) {
+int GuiWindow::OpenWin(GpuManager& manager, int refreshRate, bool fpsOnly) {
     // Create window context (Standard boilerplate remains)
     refreshRateMs = refreshRate;
     WNDCLASSEX wc;
@@ -218,7 +218,7 @@ int GuiWindow::OpenWin(GpuManager& manager, int refreshRate) {
     RegisterClassEx(&wc);
 
     // Use the original dimensions for window creation
-    m_hWnd = CreateWindow(wc.lpszClassName, reinterpret_cast<LPCSTR>(L"GPU Temperature Monitor"),
+    m_hWnd = CreateWindow(wc.lpszClassName, "GPU Temperature Monitor",
                              WS_OVERLAPPEDWINDOW, 100, 100, 640, 480, nullptr, nullptr, wc.hInstance, nullptr);
 
     // --- Refactoring Point: Use the GuiWindow object ---
@@ -259,27 +259,35 @@ int GuiWindow::OpenWin(GpuManager& manager, int refreshRate) {
         ImGui::NewFrame();
 
         // Demo window (will be replaced with GPU temperature display)
-        ImGui::Begin("GPU Temperature Monitor");
+        ImGui::Begin("GPU Monitor");
 
         ImGui::Text("Monitor Temperatura GPU");
         ImGui::Separator();
 
         // Display refresh rate info
         ImGui::Text("Refresh Rate: %d ms", refreshRateMs);
+        ImGui::Text("Vector max size: %d", 100 * 1000 / refreshRateMs);
 
         // Only update metrics if the interval has passed (Using manager object in scope)
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - lastUpdateTime) >= updateInterval) {
-            manager.UpdateGpuTempStruct();
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::high_resolution_clock::now() - lastUpdateTime) >= updateInterval) {
+            manager.UpdateGpuTempStruct(refreshRateMs, fpsOnly);
             lastUpdateTime = std::chrono::high_resolution_clock::now();
         }
 
         // Display metrics every frame (using cached values from the local manager object)
-        ImGui::Text("Temperatura GPU: %0.1f °C", manager.m_temperatureInfo.gpuTemperatureC);
-        ImGui::Text("Temperatura GPU Memory: %0.1f °C", manager.m_temperatureInfo.gpuMemoryTemperatureC);
-        ImGui::Text("Temperatura GPU Hotspot: %0.1f °C", manager.m_temperatureInfo.gpuHotspotTemperatureC);
-        ImGui::Text("Velocità Ventola GPU: %d RPM", manager.m_temperatureInfo.fanSpeed);
-        ImGui::Text("VRAM GPU occupata: %d MB", manager.m_temperatureInfo.vRam);
-        ImGui::Text("VRAM GPU libera: %d MB", manager.m_statusInfo.totalGPUMemoryMB - manager.m_temperatureInfo.vRam);
+        if (!fpsOnly) {
+            ImGui::Text("Temperatura GPU: %0.1f °C", manager.m_temperatureInfo.gpuTemperatureC);
+            ImGui::Text("Temperatura GPU Memory: %0.1f °C", manager.m_temperatureInfo.gpuMemoryTemperatureC);
+            ImGui::Text("Temperatura GPU Hotspot: %0.1f °C", manager.m_temperatureInfo.gpuHotspotTemperatureC);
+            ImGui::Text("Velocità Ventola GPU: %d RPM", manager.m_temperatureInfo.fanSpeed);
+            ImGui::Text("VRAM GPU occupata: %d MB", manager.m_temperatureInfo.vRam);
+            ImGui::Text("VRAM GPU libera: %d MB", manager.m_statusInfo.totalGPUMemoryMB - manager.m_temperatureInfo.vRam);
+        }
+        ImGui::Text("Instant FPS: %d", manager.m_temperatureInfo.instantFPS);
+        ImGui::Text("Average FPS: %d", manager.m_temperatureInfo.avgFPS);
+        ImGui::Text("Minimum FPS: %d", manager.m_temperatureInfo.minFPS);
+        ImGui::Text("Maximum FPS: %d", manager.m_temperatureInfo.maxFPS);
 
         ImGui::End();
 

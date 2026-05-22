@@ -35,7 +35,7 @@ public:
 
     // Run the main application loop (handles messages and rendering).
     void RunLoop() const;
-    int OpenWin(GpuManager& manager, int refreshRateMs);
+    int OpenWin(GpuManager& manager, int refreshRateMs, bool fpsOnly = false);
 
     // Clean up all allocated DirectX/ImGui resources.
     ~GuiWindow();

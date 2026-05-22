@@ -26,6 +26,7 @@ int main(const int argc, char* argv[]) {
 		bool showTotalRam = false;
 		bool enableGui = false;
 		int refreshRateMs = 1000;
+		bool fpsOnly = false;  // NEW: FPS-only monitoring mode flag
 
 		adlx_int voltageOffset = 0;  // NEW: stores voltage offset from command line
 
@@ -102,7 +103,9 @@ int main(const int argc, char* argv[]) {
 						<< "Using default value of 1000ms." << std::endl;
 					refreshRateMs = 1000;
 				}
+				enableGui = true;
 			}
+			else if (arg == "--fps-only" || arg == "-u") { fpsOnly = true; defaultMode = false; enableGui = true;}
 		}
 
 		if (help) {
@@ -124,6 +127,7 @@ int main(const int argc, char* argv[]) {
 				<< "  -G, --enable-gui        Enable the GUI (default: disabled).\n"
 				<< "  -a=N, --refresh-rate=N  Set refresh rate in milliseconds (e.g., --refresh-rate=500).\n"
 				<< "                          Range: 100ms to 5000ms (default: 1000ms).\n"
+				<< "  -u, --fps-only          Show only FPS in GUI (default: false).\n"
 				<< "  -h, --help              Show this help message." << std::endl;
 			return 0;
 		}
@@ -167,7 +171,7 @@ int main(const int argc, char* argv[]) {
 		}
 		if (enableGui) {
 			GuiWindow guiWindow;
-			guiWindow.OpenWin(manager, refreshRateMs);
+			guiWindow.OpenWin(manager, refreshRateMs, fpsOnly);
 		}
 
 	}

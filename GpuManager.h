@@ -6,6 +6,7 @@
 #include <IGPUTuning.h>
 #include <IPerformanceMonitoring.h>
 #include <IGPUManualGFXTuning.h>
+#include <vector>
 
 class GpuManager {
 public:
@@ -26,6 +27,12 @@ public:
         mutable adlx_double gpuHotspotTemperatureC = 0.0; // GPU hotspot temperature in Celsius
         mutable adlx_int fanSpeed = 0; // GPU fan speed in RPM
         mutable adlx_int vRam = 0; // GPU fan speed in RPM
+        mutable adlx_int vRamp = 0;
+        mutable adlx_int instantFPS = 0;
+        mutable adlx_int maxFPS = 0;
+        mutable adlx_int minFPS = 0;
+        mutable adlx_int avgFPS = 0;
+        mutable std::vector<adlx_int> fpsHistory;
     };
 
     //GpuManager(const GpuManager&) = delete;
@@ -36,7 +43,7 @@ public:
     // Monitoring methods - marked const as they don't modify state
     void ShowGPUVRAM() const;
     void ShowGPUMemoryTemperature() const;
-    void UpdateGpuTempStruct();
+    void UpdateGpuTempStruct(int refreshRateMs = 1000, bool fpsOnly = false);
     void ShowGPUVoltage() const;
     void ShowSystemRAM() const;
     void ShowTotalSystemMemory() const;
