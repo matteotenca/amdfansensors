@@ -51,11 +51,16 @@ GpuManager::GpuManager() {
     IADLXInterfacePtr manualFanTuningIfc;
     res = m_gpuTuningService->GetManualFanTuning(m_oneGPU, &manualFanTuningIfc);
     cleanUp(res, "Get manual fan tuning interface");
+
+    // res = manualFanTuningIfc->QueryInterface(L"IADLXManualFanTuning", reinterpret_cast<void**>(&m_manualFanTuning));
+    // cleanUp(res, "Get manual fan tuning pointer");
     m_manualFanTuning = static_cast<IADLXManualFanTuningPtr>(manualFanTuningIfc);
 
     IADLXInterfacePtr manualGFXTuningIfc;
     res = m_gpuTuningService->GetManualGFXTuning(m_oneGPU, &manualGFXTuningIfc);
     cleanUp(res, "Get manual graphics tuning interface");
+    // res = manualGFXTuningIfc->QueryInterface(L"IADLXManualGraphicsTuning2", reinterpret_cast<void**>(&m_manualGFXTuning2));
+    // cleanUp(res, "Get manual graphics tuning pointer");
     m_manualGFXTuning2 = static_cast<IADLXManualGraphicsTuning2Ptr>(manualGFXTuningIfc);
 
     MEMORYSTATUSEX memInfo{};
@@ -159,7 +164,8 @@ void GpuManager::SetVoltageOffset(adlx_int voltage) const {
             }
         }
         cleanUp(res);
-        std::cout << "Set GPU voltage offset " << voltage << " mV: " << (ADLX_SUCCEEDED(res) ? "succeeded" : "failed") << std::endl;
+        std::cout << "Set GPU voltage offset " << voltage << " mV: " << (ADLX_SUCCEEDED(res) ? "succeeded" : "failed")
+            << std::endl;
 
         res = m_manualGFXTuning2->GetGPUVoltage(&currentVolt);
         cleanUp(res);
@@ -193,8 +199,10 @@ void GpuManager::ShowGetAndSetFan(bool setRamp, bool defaultRamp) const {
     ADLX_RESULT res = m_manualFanTuning->GetFanTuningRanges(&fanSpeedRange, &fanTemperatureRange);
     cleanUp(res);
 
-    std::cout << "Fan speed range is: (" << fanSpeedRange.minValue << ", " << fanSpeedRange.maxValue << ")" << std::endl;
-    std::cout << "Fan temperature range is: (" << fanTemperatureRange.minValue << ", " << fanTemperatureRange.maxValue << ")" << std::endl;
+    std::cout << "Fan speed range is: (" << fanSpeedRange.minValue << ", " << fanSpeedRange.maxValue << ")" <<
+        std::endl;
+    std::cout << "Fan temperature range is: (" << fanTemperatureRange.minValue << ", " << fanTemperatureRange.maxValue
+        << ")" << std::endl;
 
     IADLXManualFanTuningStateListPtr states;
     IADLXManualFanTuningStatePtr oneState;
@@ -206,7 +214,8 @@ void GpuManager::ShowGetAndSetFan(bool setRamp, bool defaultRamp) const {
             adlx_int speed = 0, temperature = 0;
             oneState->GetFanSpeed(&speed);
             oneState->GetTemperature(&temperature);
-            std::cout << "The current " << crt << " state: speed is " << speed << " temperature is " << temperature << std::endl;
+            std::cout << "The current " << crt << " state: speed is " << speed << " temperature is " << temperature <<
+                std::endl;
         }
     }
 
@@ -240,7 +249,8 @@ void GpuManager::ShowGetAndSetFan(bool setRamp, bool defaultRamp) const {
                 res = oneState->SetTemperature(temps[crt]);
                 if (res == ADLX_FAIL) return;
                 oneState->GetTemperature(&temperature);
-                std::cout << "Set empty " << crt << " state: speed is " << speed << " temperature is " << temperature << std::endl;
+                std::cout << "Set empty " << crt << " state: speed is " << speed << " temperature is " << temperature <<
+                    std::endl;
             }
         }
 
@@ -260,7 +270,8 @@ void GpuManager::ShowGetAndSetFan(bool setRamp, bool defaultRamp) const {
                 adlx_int speed = 0, temperature = 0;
                 oneState->GetFanSpeed(&speed);
                 oneState->GetTemperature(&temperature);
-                std::cout << "The current " << crt << " state: speed is " << speed << " temperature is " << temperature << std::endl;
+                std::cout << "The current " << crt << " state: speed is " << speed << " temperature is " << temperature
+                    << std::endl;
             }
         }
     }
@@ -273,7 +284,8 @@ void GpuManager::ShowGPUVRAM() const {
         adlx_int VRAM = 0;
         res = m_gpuMetrics->GPUVRAM(&VRAM);
         if (ADLX_SUCCEEDED(res)) {
-            std::cout << "The used GPU VRAM is: " << VRAM << " MB/" << m_statusInfo.totalGPUMemoryMB << " MB" << std::endl;
+            std::cout << "The used GPU VRAM is: " << VRAM << " MB/" << m_statusInfo.totalGPUMemoryMB << " MB" <<
+                std::endl;
             std::cout << "Free VRAM: " << m_statusInfo.totalGPUMemoryMB - VRAM << " MB" << std::endl;
         }
     }
@@ -377,9 +389,12 @@ void GpuManager::UpdateGpuTempStruct(bool fpsOnly) {
                     if (ADLX_SUCCEEDED(res) && supported) {
                         adlx_double temperature = 0;
                         adlx_int fanSpeed = 0, vRam = 0;
-                        if (ADLX_SUCCEEDED(gpuMetrics1->GPUMemoryTemperature(&temperature))) m_temperatureInfo.gpuMemoryTemperatureC = temperature;
-                        if (ADLX_SUCCEEDED(gpuMetrics1->GPUHotspotTemperature(&temperature))) m_temperatureInfo.gpuHotspotTemperatureC = temperature;
-                        if (ADLX_SUCCEEDED(gpuMetrics1->GPUTemperature(&temperature))) m_temperatureInfo.gpuTemperatureC = temperature;
+                        if (ADLX_SUCCEEDED(gpuMetrics1->GPUMemoryTemperature(&temperature))) m_temperatureInfo.
+                            gpuMemoryTemperatureC = temperature;
+                        if (ADLX_SUCCEEDED(gpuMetrics1->GPUHotspotTemperature(&temperature))) m_temperatureInfo.
+                            gpuHotspotTemperatureC = temperature;
+                        if (ADLX_SUCCEEDED(gpuMetrics1->GPUTemperature(&temperature))) m_temperatureInfo.gpuTemperatureC
+                            = temperature;
                         if (ADLX_SUCCEEDED(gpuMetrics1->GPUFanSpeed(&fanSpeed))) m_temperatureInfo.fanSpeed = fanSpeed;
                         if (ADLX_SUCCEEDED(gpuMetrics1->GPUVRAM(&vRam))) m_temperatureInfo.vRam = vRam;
                     }

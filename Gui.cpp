@@ -9,6 +9,9 @@
 #include <d3d11.h>
 #include <iostream>
 #include <thread>
+#include <wrl/client.h>
+
+using namespace Microsoft::WRL;
 
 // Window procedure remains external as it uses Windows API directly
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
@@ -16,17 +19,16 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
         return true;
 
     switch (message) {
-        case WM_DESTROY:
-            PostQuitMessage(0);
-            return 0;
-        case WM_SIZE:
-            // The GuiWindow::RunLoop will handle resizing logic using its internal state.
-            return 0;
-        default:
-            return DefWindowProc(hWnd, message, wParam, lParam);
+    case WM_DESTROY:
+        PostQuitMessage(0);
+        return 0;
+    case WM_SIZE:
+        // The GuiWindow::RunLoop will handle resizing logic using its internal state.
+        return 0;
+    default:
+        return DefWindowProc(hWnd, message, wParam, lParam);
     }
 }
-
 
 // Implementation of CreateDeviceD3D (No changes needed)
 bool GuiWindow::CreateDeviceD3D() {
@@ -50,21 +52,19 @@ bool GuiWindow::CreateDeviceD3D() {
     D3D_FEATURE_LEVEL featureLevel;
     constexpr D3D_FEATURE_LEVEL featureLevelArray[2] = {D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_0,};
 
+    // ComPtrs are automatically initialized via the address of the pointer inside the ComPtr
     if (D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags,
-                                      featureLevelArray, 2, D3D11_SDK_VERSION, &sd, &m_pSwapChain,
-                                      &m_pd3dDevice, &featureLevel, &m_pd3dDeviceContext) != S_OK) {
+                                      featureLevelArray, 2, D3D11_SDK_VERSION, &sd,
+                                      m_pSwapChain.GetAddressOf(),
+                                      m_pd3dDevice.GetAddressOf(), &featureLevel,
+                                      m_pd3dDeviceContext.GetAddressOf()) != S_OK) {
         std::cerr << "Failed to create DirectX device and swap chain." << std::endl;
-        return false;
-    }
-
-    if (m_pSwapChain == nullptr) {
-        std::cerr << "Swap chain creation failed - m_pSwapChain is null." << std::endl;
         return false;
     }
 
     if (!CreateRenderTarget()) {
         std::cerr << "Failed to create render target after device initialization." << std::endl;
-        CleanupDeviceD3D();  // Clean up device resources on failure
+        CleanupDeviceD3D(); // Clean up device resources on failure
         return false;
     }
     return true;
@@ -72,51 +72,30 @@ bool GuiWindow::CreateDeviceD3D() {
 
 // Implementation of CreateRenderTarget (No changes needed)
 bool GuiWindow::CreateRenderTarget() {
-    ID3D11Texture2D* pBackBuffer = nullptr;
+    ComPtr<ID3D11Texture2D> pBackBuffer; // Local ComPtr handles automatic release
     HRESULT hr = m_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
 
     if (FAILED(hr)) {
         std::cerr << "Failed to create render target view from swap chain buffer. Error code: 0x"
-                  << std::hex << hr << std::dec << std::endl;
+            << std::hex << hr << std::dec << std::endl;
         pBackBuffer = nullptr; // Ensure no dangling pointer
         return false;
     }
 
-    hr = m_pd3dDevice->CreateRenderTargetView(pBackBuffer, nullptr, &m_mainRenderTargetView);
-    if (FAILED(hr)) {  // Check the HRESULT from CreateRenderTargetView
-        std::cerr << "Failed to create render target view. Error code: 0x"
-                  << std::hex << hr << std::dec << std::endl;
-        pBackBuffer->Release();
-        return false;
-    }
-
-    pBackBuffer->Release();
-    return true;
+    hr = m_pd3dDevice->CreateRenderTargetView(pBackBuffer.Get(), nullptr, m_mainRenderTargetView.GetAddressOf());
+    return SUCCEEDED(hr);
 }
 
-// Implementation of CleanupRenderTarget (No changes needed)
 void GuiWindow::CleanupRenderTarget() {
-    if (m_mainRenderTargetView) {
-        m_mainRenderTargetView->Release();
-        m_mainRenderTargetView = nullptr;
-    }
+    m_mainRenderTargetView.Reset(); // Safe reset
 }
 
 // Implementation of CleanupDeviceD3D (No changes needed)
 void GuiWindow::CleanupDeviceD3D() {
-    CleanupRenderTarget(); 
-    if (m_pSwapChain) {
-        m_pSwapChain->Release();
-        m_pSwapChain = nullptr;
-    }
-    if (m_pd3dDeviceContext) {
-        m_pd3dDeviceContext->Release();
-        m_pd3dDeviceContext = nullptr;
-    }
-    if (m_pd3dDevice) {
-        m_pd3dDevice->Release();
-        m_pd3dDevice = nullptr;
-    }
+    CleanupRenderTarget();
+    m_pSwapChain.Reset();
+    m_pd3dDeviceContext.Reset();
+    m_pd3dDevice.Reset();
 }
 
 // Destructor ensures proper cleanup when the object goes out of scope. (No changes needed)
@@ -124,9 +103,6 @@ GuiWindow::~GuiWindow() {
     CleanupDeviceD3D();
 }
 
-/**
- * @brief Initializes all graphics resources and sets up ImGui context. (No changes needed)
- */
 bool GuiWindow::Initialize(int refreshRate, int refreshRateFPS) {
     if (!CreateDeviceD3D()) {
         std::cerr << "Failed to create DirectX device." << std::endl;
@@ -141,7 +117,9 @@ bool GuiWindow::Initialize(int refreshRate, int refreshRateFPS) {
     ImGui::StyleColorsDark();
 
     ImGui_ImplWin32_Init(m_hWnd);
-    ImGui_ImplDX11_Init(m_pd3dDevice, m_pd3dDeviceContext);
+    // Pass the raw pointer from ComPtr to ImGui
+    ImGui_ImplDX11_Init(m_pd3dDevice.Get(), m_pd3dDeviceContext.Get());
+
     refreshRateMs = refreshRate;
     refreshRateFPSMs = refreshRateFPS;
     return true;
@@ -149,7 +127,6 @@ bool GuiWindow::Initialize(int refreshRate, int refreshRateFPS) {
 
 // Main window application entry point. Optimized to reduce CPU usage.
 int GuiWindow::OpenWin(GpuManager& manager, const int refreshRate, const int refreshRateFPS, const bool fpsOnly) {
-
     int error = 0;
     // Setup Window Class (No changes needed)
     WNDCLASSEX wc;
@@ -161,7 +138,7 @@ int GuiWindow::OpenWin(GpuManager& manager, const int refreshRate, const int ref
     RegisterClassEx(&wc);
 
     m_hWnd = CreateWindow(wc.lpszClassName, "GPU Temperature Monitor",
-                             WS_OVERLAPPEDWINDOW, 100, 100, 640, 480, nullptr, nullptr, wc.hInstance, nullptr);
+                          WS_OVERLAPPEDWINDOW, 100, 100, 640, 480, nullptr, nullptr, wc.hInstance, nullptr);
 
     std::cout << "Initializing GUI resources..." << std::endl;
     if (!Initialize(refreshRate, refreshRateFPS)) {
@@ -204,7 +181,7 @@ int GuiWindow::OpenWin(GpuManager& manager, const int refreshRate, const int ref
         }
 
         // --- CPU Optimization: Throttling ---
-        if (IsIconic(m_hWnd) || ! IsWindowVisible(m_hWnd)) {
+        if (IsIconic(m_hWnd) || !IsWindowVisible(m_hWnd)) {
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
             continue;
         }
@@ -216,7 +193,7 @@ int GuiWindow::OpenWin(GpuManager& manager, const int refreshRate, const int ref
             manager.UpdateGpuTempStruct(true);
             lastFpsUpdateTime = now;
             lastDisplayedTempInfo = manager.m_temperatureInfo;
-            updatesFPS+=1;
+            updatesFPS += 1;
             needsRedraw = true;
         }
 
@@ -226,7 +203,7 @@ int GuiWindow::OpenWin(GpuManager& manager, const int refreshRate, const int ref
             lastTempUpdateTime = now;
             lastDisplayedTempInfo = manager.m_temperatureInfo;
             lastDisplayedStatusInfo = manager.GetStatusInfo();
-            updatesTemp+=1;
+            updatesTemp += 1;
             needsRedraw = true;
         }
 
@@ -252,7 +229,8 @@ int GuiWindow::OpenWin(GpuManager& manager, const int refreshRate, const int ref
                 ImGui::Text("Temperatura GPU Hotspot: %0.1f °C", lastDisplayedTempInfo.gpuHotspotTemperatureC);
                 ImGui::Text("Velocità Ventola GPU: %d RPM", lastDisplayedTempInfo.fanSpeed);
                 ImGui::Text("VRAM GPU occupata: %d MB", lastDisplayedTempInfo.vRam);
-                ImGui::Text("VRAM GPU libera: %d MB", lastDisplayedStatusInfo.totalGPUMemoryMB - lastDisplayedTempInfo.vRam);
+                ImGui::Text("VRAM GPU libera: %d MB",
+                            lastDisplayedStatusInfo.totalGPUMemoryMB - lastDisplayedTempInfo.vRam);
             }
             ImGui::Text("Instant FPS: %d", lastDisplayedTempInfo.instantFPS);
             ImGui::Text("Average FPS: %d", lastDisplayedTempInfo.avgFPS);
@@ -262,8 +240,9 @@ int GuiWindow::OpenWin(GpuManager& manager, const int refreshRate, const int ref
             ImGui::End();
 
             ImGui::Render();
-            m_pd3dDeviceContext->OMSetRenderTargets(1, &m_mainRenderTargetView, nullptr);
-            m_pd3dDeviceContext->ClearRenderTargetView(m_mainRenderTargetView, clear_color_with_alpha);
+            // Use .Get() for ComPtrs
+            m_pd3dDeviceContext->OMSetRenderTargets(1, m_mainRenderTargetView.GetAddressOf(), nullptr);
+            m_pd3dDeviceContext->ClearRenderTargetView(m_mainRenderTargetView.Get(), clear_color_with_alpha);
             ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
             HRESULT hr = m_pSwapChain->Present(1, 0);
@@ -272,7 +251,8 @@ int GuiWindow::OpenWin(GpuManager& manager, const int refreshRate, const int ref
                 error = 1;
                 break;
             }
-        } else {
+        }
+        else {
             // No data changed and no messages: sleep briefly to avoid 100% core usage
             // This is the key to reducing CPU from 2% to <0.1%
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -281,10 +261,16 @@ int GuiWindow::OpenWin(GpuManager& manager, const int refreshRate, const int ref
 
     // --- Cleanup (No changes needed) ---
     std::cout << "Cleaning up GUI resources..." << std::endl;
-    
+
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
+
+    // FIX: Explicitly destroy the window handle before unregistering
+    if (m_hWnd) {
+        DestroyWindow(m_hWnd);
+        m_hWnd = nullptr;
+    }
 
     UnregisterClass(wc.lpszClassName, wc.hInstance);
 

@@ -2,18 +2,14 @@
 #define AMDFANSENSORS_WINDOW_H
 #pragma once
 
-// Windows headers
 #include <windows.h>
-
-// DirectX headers
 #include <d3d11.h>
-
-// ImGui headers
+#include <wrl/client.h> // Added for ComPtr
 #include <imgui.h>
-
 #include "GpuManager.h"
 
-// Forward declarations
+using Microsoft::WRL::ComPtr; // Shortcut for cleaner code
+
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 // Window procedure - main message handler for the application window
@@ -25,7 +21,6 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
  */
 class GuiWindow {
 public:
-
     // Initialize DirectX, ImGui and the main loop resources.
     bool Initialize(int refreshRateMs, int refreshRateFPS = 1000);
 
@@ -35,16 +30,21 @@ public:
 
     // Clean up all allocated DirectX/ImGui resources.
     ~GuiWindow();
+    GuiWindow() = default;
+    // Prevent copying to avoid double-release of DirectX resources
+    GuiWindow(const GuiWindow&) = delete;
+    GuiWindow& operator=(const GuiWindow&) = delete;
 
     int refreshRateMs = 1000;
     int refreshRateFPSMs = 1000;
 
 private:
     HWND m_hWnd = nullptr;
-    ID3D11Device* m_pd3dDevice = nullptr;
-    ID3D11DeviceContext* m_pd3dDeviceContext = nullptr;
-    IDXGISwapChain* m_pSwapChain = nullptr;
-    ID3D11RenderTargetView* m_mainRenderTargetView = nullptr;
+    // Changed raw pointers to ComPtr for automatic lifecycle management
+    ComPtr<ID3D11Device> m_pd3dDevice;
+    ComPtr<ID3D11DeviceContext> m_pd3dDeviceContext;
+    ComPtr<IDXGISwapChain> m_pSwapChain;
+    ComPtr<ID3D11RenderTargetView> m_mainRenderTargetView;
 
 
     // Internal methods for DX setup/cleanup
@@ -53,7 +53,6 @@ private:
     void CleanupRenderTarget();
     void CleanupDeviceD3D();
 };
-
 
 
 #endif //AMDFANSENSORS_WINDOW_H

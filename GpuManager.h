@@ -9,10 +9,11 @@
 #include <stdexcept>
 
 // Ring buffer template for efficient circular storage
-template<typename T, size_t Capacity>
+template <typename T, size_t Capacity>
 class RingBuffer {
 public:
-    RingBuffer() : m_head(0), m_tail(0), m_count(0) {}
+    RingBuffer() : m_head(0), m_tail(0), m_count(0) {
+    }
 
     bool get(size_t pos, T& value) {
         if (pos >= m_count) return false;
@@ -27,7 +28,8 @@ public:
         if (m_count == Capacity) {
             // Buffer is full: advance head to overwrite the oldest element
             m_head = (m_head + 1) % Capacity;
-        } else {
+        }
+        else {
             ++m_count;
         }
 
@@ -88,7 +90,6 @@ private:
     size_t m_head; // Index of oldest element
     size_t m_tail; // Index where next element will be written
     size_t m_count; // Current number of valid elements
-
 };
 
 class GpuManager {
@@ -98,10 +99,10 @@ public:
 
     // Struct to hold global GPU status information
     struct GpuStatusInfo {
-        size_t totalSystemRamMB = 0;      // Total installed system RAM (MB)
-        adlx_uint totalGPUMemoryMB = 0;   // GPU total VRAM (MB)
+        size_t totalSystemRamMB = 0; // Total installed system RAM (MB)
+        adlx_uint totalGPUMemoryMB = 0; // GPU total VRAM (MB)
         adlx_bool zeroRPMEnabled = false; // Current ZeroRPM status
-        mutable adlx_int voltageOffsetMV = 0;     // Current GPU voltage offset (mV)
+        mutable adlx_int voltageOffsetMV = 0; // Current GPU voltage offset (mV)
     };
 
     struct GpuTemperatureInfo {
@@ -133,8 +134,8 @@ public:
     void ShowTotalSystemMemory() const;
 
     // ZeroRPM specific methods - split into read and toggle
-    void ShowZeroRPMStatus() const;      // Reads status from struct
-    void ToggleZeroRPM();                // Toggles ZeroRPM state
+    void ShowZeroRPMStatus() const; // Reads status from struct
+    void ToggleZeroRPM(); // Toggles ZeroRPM state
 
     // Tuning methods
     void ShowGetAndSetFan(bool setRamp, bool defaultRamp) const;
@@ -142,24 +143,22 @@ public:
     //void GetGPUStates() const;
     void SetVoltageOffsetFromCLI(adlx_int voltage) const; // NEW: Added from CLI
     adlx_int GetVoltageOffset() const; // NEW: Getter for voltage offset
-    IADLXManualGraphicsTuning2Ptr m_manualGFXTuning2;
-    IADLXGPUMetricsSupportPtr m_gpuMetricsSupport;
-    IADLXGPUMetricsPtr m_gpuMetrics;
-    IADLXSystemMetricsSupportPtr m_systemMetricsSupport;
-    IADLXSystemMetricsPtr m_systemMetrics;
+    IADLXManualGraphicsTuning2Ptr m_manualGFXTuning2 = nullptr;
+    IADLXGPUMetricsSupportPtr m_gpuMetricsSupport = nullptr;
+    IADLXGPUMetricsPtr m_gpuMetrics = nullptr;
+    IADLXSystemMetricsSupportPtr m_systemMetricsSupport = nullptr;
+    IADLXSystemMetricsPtr m_systemMetrics = nullptr;
 
-    IADLXGPUTuningServicesPtr m_gpuTuningService;
-    IADLXManualFanTuningPtr m_manualFanTuning;
-    IADLXPerformanceMonitoringServicesPtr m_perfMonitoringServices;
+    IADLXGPUTuningServicesPtr m_gpuTuningService = nullptr;
+    IADLXManualFanTuningPtr m_manualFanTuning = nullptr;
+    IADLXPerformanceMonitoringServicesPtr m_perfMonitoringServices = nullptr;
     //ADLXHelper m_adlxHelp;
-    IADLXGPUPtr m_oneGPU;
+    IADLXGPUPtr m_oneGPU = nullptr;
     //adlx_uint m_totalVram;
     GpuStatusInfo m_statusInfo; // Status information struct
     GpuTemperatureInfo m_temperatureInfo; // Temperature information struct
 private:
     // Updated signature: accepts ADLX_RESULT and optional operation_name name
     static void cleanUp(ADLX_RESULT res, const char* operation_name = nullptr);
-
-
 };
 #endif // GPU_MANAGER_H
