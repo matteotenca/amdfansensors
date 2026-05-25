@@ -134,18 +134,6 @@ int main(const int argc, char* argv[]) {
 
 
 
-		// NEW: Apply voltage offset from command line before other operations
-		// if (setVoltageOffset) {
-		//     manager.SetVoltageOffsetFromCLI(voltageOffset);
-		// }
-		// GpuManager::GpuStatusInfo status = manager.GetStatusInfo();
-		// std::cout << "=== System Status Summary ===" << std::endl;
-		// std::cout << "System RAM: " << status.totalSystemRamMB << " MB\n";
-		// std::cout << "GPU VRAM: " << status.totalGPUMemoryMB << " MB\n";
-		// std::cout << "ZeroRPM Enabled: " << (status.zeroRPMEnabled ? "Yes" : "No") << "\n";
-		// std::cout << "Voltage Offset: " << status.voltageOffsetMV << " mV\n";
-		// std::cout << "================================" << std::endl;
-
 		if (defaultMode) {
 			std::cout << "No specific metrics flag provided. Showing all available metrics." << std::endl;
 			manager.ShowGPUVRAM();

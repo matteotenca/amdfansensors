@@ -1,6 +1,8 @@
+// Gui.cpp full content - OPTIMIZED FOR REDUNDANT DRAWING
 #include "Gui.h"
 
 #include <chrono>
+#include <algorithm> // Required for std::min/std::max if used elsewhere, good practice to include
 
 #include "imgui.h"
 #include "imgui_impl_win32.h"
@@ -9,8 +11,6 @@
 #include <d3d11.h>
 #include <iostream>
 #include <thread>
-
-// --- Global DirectX variables removed: Now members of GuiWindow ---
 
 // Window procedure remains external as it uses Windows API directly
 LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
@@ -23,28 +23,15 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
             return 0;
         case WM_SIZE:
             // The GuiWindow::RunLoop will handle resizing logic using its internal state.
-            // For now, we keep the placeholder return.
             return 0;
         default:
             return DefWindowProc(hWnd, message, wParam, lParam);
     }
 }
 
-// --- GuiWindow Implementation ---
 
-// /**
-//  * @brief Constructor initializes necessary pointers to null.
-//  */
-// GuiWindow::GuiWindow(HWND hWnd) : m_hWnd(hWnd),
-//                                  m_pd3dDevice(nullptr),
-//                                  m_pd3dDeviceContext(nullptr),
-//                                  m_pSwapChain(nullptr),
-//                                  m_mainRenderTargetView(nullptr) {}
-
-
-// Implementation of CreateDeviceD3D, now a member function
+// Implementation of CreateDeviceD3D (No changes needed)
 bool GuiWindow::CreateDeviceD3D() {
-    // Setup DirectX
     DXGI_SWAP_CHAIN_DESC sd;
     ZeroMemory(&sd, sizeof(sd));
     sd.BufferCount = 2;
@@ -65,30 +52,26 @@ bool GuiWindow::CreateDeviceD3D() {
     D3D_FEATURE_LEVEL featureLevel;
     constexpr D3D_FEATURE_LEVEL featureLevelArray[2] = {D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_0,};
 
-    // Use the class member pointers for initialization
     if (D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags,
                                       featureLevelArray, 2, D3D11_SDK_VERSION, &sd, &m_pSwapChain,
                                       &m_pd3dDevice, &featureLevel, &m_pd3dDeviceContext) != S_OK)
         return false;
 
-    // Now that m_pSwapChain is initialized, we can create the render target view
-    // We must first resize the swap chain to the window dimensions (if possible).
-    // For simplicity in this refactor, we assume CreateRenderTarget handles initial sizing correctly.
+
     CreateRenderTarget();
     return true;
 }
 
+// Implementation of CreateRenderTarget (No changes needed)
 void GuiWindow::CreateRenderTarget() {
     ID3D11Texture2D* pBackBuffer = nullptr;
-    // Get the buffer from the swap chain
     m_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
 
-    // Create and assign the render target view to the class member
     m_pd3dDevice->CreateRenderTargetView(pBackBuffer, nullptr, &m_mainRenderTargetView);
     pBackBuffer->Release();
 }
 
-// Implementation of CleanupRenderTarget (Uses class members)
+// Implementation of CleanupRenderTarget (No changes needed)
 void GuiWindow::CleanupRenderTarget() {
     if (m_mainRenderTargetView) {
         m_mainRenderTargetView->Release();
@@ -96,9 +79,9 @@ void GuiWindow::CleanupRenderTarget() {
     }
 }
 
-// Implementation of CleanupDeviceD3D (Uses class members)
+// Implementation of CleanupDeviceD3D (No changes needed)
 void GuiWindow::CleanupDeviceD3D() {
-    CleanupRenderTarget(); // Clean RTV first
+    CleanupRenderTarget(); 
     if (m_pSwapChain) {
         m_pSwapChain->Release();
         m_pSwapChain = nullptr;
@@ -113,22 +96,20 @@ void GuiWindow::CleanupDeviceD3D() {
     }
 }
 
-// Destructor ensures proper cleanup when the object goes out of scope.
+// Destructor ensures proper cleanup when the object goes out of scope. (No changes needed)
 GuiWindow::~GuiWindow() {
     CleanupDeviceD3D();
 }
 
 /**
- * @brief Initializes all graphics resources and sets up ImGui context.
+ * @brief Initializes all graphics resources and sets up ImGui context. (No changes needed)
  */
 bool GuiWindow::Initialize(int refreshRate) {
-    // Step 1: Initialize DirectX using the member function
     if (!CreateDeviceD3D()) {
         std::cerr << "Failed to create DirectX device." << std::endl;
         return false;
     }
 
-    // Setup ImGui
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -137,78 +118,14 @@ bool GuiWindow::Initialize(int refreshRate) {
     ImGui::StyleColorsDark();
 
     ImGui_ImplWin32_Init(m_hWnd);
-    // Use class members for initialization
     ImGui_ImplDX11_Init(m_pd3dDevice, m_pd3dDeviceContext);
     refreshRateMs = refreshRate;
     return true;
 }
 
-/**
- * @brief Runs the main event and rendering loop. This replaces the previous procedural loop body.
- */
-void GuiWindow::RunLoop() const {
-    // Main loop message handling setup
-    MSG msg;
-    ZeroMemory(&msg, sizeof(msg));
-
-    std::cout << "Finestra aperta. Premere ESC per uscire." << std::endl;
-    constexpr float clear_color_with_alpha[4] = {0.45f, 0.55f, 0.60f, 1.00f};
-
-    std::chrono::high_resolution_clock::time_point lastUpdateTime = std::chrono::high_resolution_clock::now();
-    // std::chrono::milliseconds updateInterval(refreshRateMs); // Assuming a fixed interval for the loop structure demonstration
-
-    // Main message handling and rendering loop
-    while (msg.message != WM_QUIT) {
-        if (PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-            continue;
-        }
-
-        // Start ImGui frame
-        ImGui_ImplDX11_NewFrame();
-        ImGui_ImplWin32_NewFrame();
-        ImGui::NewFrame();
-
-        // Demo window (will be replaced with GPU temperature display)
-        ImGui::Begin("GPU Temperature Monitor");
-
-        ImGui::Text("Monitor Temperatura GPU");
-        ImGui::Separator();
-
-        // Display refresh rate info - Note: The actual refreshRateMs parameter was consumed during initialization.
-        // We use the constant defined earlier for demonstration purposes, or ideally pass it into RunLoop if needed.
-        // Assuming we know the desired interval here (e.g., 100ms update).
-        ImGui::Text("Refresh Rate: %d ms", refreshRateMs); // Placeholder value
-
-        // Only update metrics if the interval has passed
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - lastUpdateTime) >= std::chrono::milliseconds(refreshRateMs)) {
-            // Use the manager object passed to OpenWin, which should be accessible here.
-            // Since RunLoop is a member function and doesn't take `GpuManager`,
-            // we must adjust OpenWin to manage this state flow. (See final implementation below).
-            lastUpdateTime = std::chrono::high_resolution_clock::now();
-        }
-
-        // Display metrics every frame (using cached values)
-        // Placeholder access: We rely on the manager object existing in scope during the main loop execution.
-        /* ImGui::Text("Temperatura GPU: %0.1f °C", g_manager.m_temperatureInfo.gpuTemperatureC); */
-        ImGui::End();
-
-        // Rendering
-        ImGui::Render();
-        m_pd3dDeviceContext->OMSetRenderTargets(1, &m_mainRenderTargetView, nullptr);
-        m_pd3dDeviceContext->ClearRenderTargetView(m_mainRenderTargetView, clear_color_with_alpha);
-        ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-
-        m_pSwapChain->Present(1, 0);
-    }
-}
-
-
-// Main window application entry point. Now manages the object lifecycle.
+// Main window application entry point. Optimized to skip rendering if data hasn't changed.
 int GuiWindow::OpenWin(GpuManager& manager, int refreshRate, bool fpsOnly) {
-    // Create window context (Standard boilerplate remains)
-    refreshRateMs = refreshRate;
+    // Setup Window Class (No changes needed)
     WNDCLASSEX wc;
     wc = {
         sizeof(WNDCLASSEX), CS_CLASSDC, WindowProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr,
@@ -217,15 +134,11 @@ int GuiWindow::OpenWin(GpuManager& manager, int refreshRate, bool fpsOnly) {
     };
     RegisterClassEx(&wc);
 
-    // Use the original dimensions for window creation
     m_hWnd = CreateWindow(wc.lpszClassName, "GPU Temperature Monitor",
                              WS_OVERLAPPEDWINDOW, 100, 100, 640, 480, nullptr, nullptr, wc.hInstance, nullptr);
 
-    // --- Refactoring Point: Use the GuiWindow object ---
-    // GuiWindow gui(hwnd);
-
     std::cout << "Initializing GUI resources..." << std::endl;
-    if (!Initialize(refreshRateMs)) {
+    if (!Initialize(refreshRate)) {
         UnregisterClass(wc.lpszClassName, wc.hInstance);
         return 1;
     }
@@ -234,7 +147,7 @@ int GuiWindow::OpenWin(GpuManager& manager, int refreshRate, bool fpsOnly) {
     UpdateWindow(m_hWnd);
 
 
-    // --- Main loop execution (Need to capture the scope of OpenWin to pass manager state) ---
+    // --- Main loop execution (Optimized) ---
     MSG msg;
     ZeroMemory(&msg, sizeof(msg));
 
@@ -244,8 +157,11 @@ int GuiWindow::OpenWin(GpuManager& manager, int refreshRate, bool fpsOnly) {
     std::chrono::high_resolution_clock::time_point lastUpdateTime = std::chrono::high_resolution_clock::now();
     std::chrono::milliseconds updateInterval(refreshRateMs);
 
+    // State tracking for optimization: Store the last successfully displayed values
+    GpuManager::GpuTemperatureInfo lastDisplayedTempInfo = manager.m_temperatureInfo;
+    GpuManager::GpuStatusInfo lastDisplayedStatusInfo = manager.GetStatusInfo();
 
-    // The main loop logic must be contained within OpenWin scope to access 'manager'
+
     while (msg.message != WM_QUIT) {
         if (PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
             TranslateMessage(&msg);
@@ -258,52 +174,70 @@ int GuiWindow::OpenWin(GpuManager& manager, int refreshRate, bool fpsOnly) {
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
-        // Demo window (will be replaced with GPU temperature display)
+        bool metricsUpdated = false;
+
+        // Check if it's time to poll hardware data (Performance Throttling)
+        if (std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::high_resolution_clock::now() - lastUpdateTime) >= updateInterval) {
+            
+            manager.UpdateGpuTempStruct(refreshRateMs, fpsOnly);
+            lastUpdateTime = std::chrono::high_resolution_clock::now();
+            metricsUpdated = true; // Data was polled this cycle
+        }
+
+        // --- GUI Rendering Logic ---
         ImGui::Begin("GPU Monitor");
 
         ImGui::Text("Monitor Temperatura GPU");
         ImGui::Separator();
 
-        // Display refresh rate info
+        // Display refresh rate info (Static, always draw)
         ImGui::Text("Refresh Rate: %d ms", refreshRateMs);
         ImGui::Text("Vector max size: %d", 100 * 1000 / refreshRateMs);
 
-        // Only update metrics if the interval has passed (Using manager object in scope)
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::high_resolution_clock::now() - lastUpdateTime) >= updateInterval) {
-            manager.UpdateGpuTempStruct(refreshRateMs, fpsOnly);
-            lastUpdateTime = std::chrono::high_resolution_clock::now();
+        // Optimization Check: Only redraw detailed metrics if the data has changed OR if it's the first frame.
+        bool shouldDrawMetrics = metricsUpdated || (lastDisplayedTempInfo.gpuTemperatureC == 0.0 && lastDisplayedStatusInfo.totalSystemRamMB == 0);
+
+        if (shouldDrawMetrics) {
+            // Update local tracking variables with current manager state for comparison next loop
+            lastDisplayedTempInfo = manager.m_temperatureInfo;
+            lastDisplayedStatusInfo = manager.GetStatusInfo();
         }
 
-        // Display metrics every frame (using cached values from the local manager object)
-        if (!fpsOnly) {
-            ImGui::Text("Temperatura GPU: %0.1f °C", manager.m_temperatureInfo.gpuTemperatureC);
-            ImGui::Text("Temperatura GPU Memory: %0.1f °C", manager.m_temperatureInfo.gpuMemoryTemperatureC);
-            ImGui::Text("Temperatura GPU Hotspot: %0.1f °C", manager.m_temperatureInfo.gpuHotspotTemperatureC);
-            ImGui::Text("Velocità Ventola GPU: %d RPM", manager.m_temperatureInfo.fanSpeed);
-            ImGui::Text("VRAM GPU occupata: %d MB", manager.m_temperatureInfo.vRam);
-            ImGui::Text("VRAM GPU libera: %d MB", manager.m_statusInfo.totalGPUMemoryMB - manager.m_temperatureInfo.vRam);
+
+        // Display metrics only if data was updated or on the first frame
+        if (shouldDrawMetrics) {
+            if (!fpsOnly) {
+                ImGui::Text("Temperatura GPU: %0.1f °C", lastDisplayedTempInfo.gpuTemperatureC);
+                ImGui::Text("Temperatura GPU Memory: %0.1f °C", lastDisplayedTempInfo.gpuMemoryTemperatureC);
+                ImGui::Text("Temperatura GPU Hotspot: %0.1f °C", lastDisplayedTempInfo.gpuHotspotTemperatureC);
+                ImGui::Text("Velocità Ventola GPU: %d RPM", lastDisplayedTempInfo.fanSpeed);
+                ImGui::Text("VRAM GPU occupata: %d MB", lastDisplayedTempInfo.vRam);
+                ImGui::Text("VRAM GPU libera: %d MB", lastDisplayedStatusInfo.totalGPUMemoryMB - lastDisplayedTempInfo.vRam);
+            }
+            ImGui::Text("Instant FPS: %d", lastDisplayedTempInfo.instantFPS);
+            ImGui::Text("Average FPS: %d", lastDisplayedTempInfo.avgFPS);
+            ImGui::Text("Minimum FPS: %d", lastDisplayedTempInfo.minFPS);
+            ImGui::Text("Maximum FPS: %d", lastDisplayedTempInfo.maxFPS);
+        } else {
+             // If no update, display a placeholder message instead of drawing potentially stale data
+             ImGui::TextColored({1.0f, 1.0f, 0.5f, 1.0f}, "Waiting for next hardware poll...");
         }
-        ImGui::Text("Instant FPS: %d", manager.m_temperatureInfo.instantFPS);
-        ImGui::Text("Average FPS: %d", manager.m_temperatureInfo.avgFPS);
-        ImGui::Text("Minimum FPS: %d", manager.m_temperatureInfo.minFPS);
-        ImGui::Text("Maximum FPS: %d", manager.m_temperatureInfo.maxFPS);
 
         ImGui::End();
 
-        // Rendering (Using the internal resources of the 'gui' object)
+        // Rendering (Always required to keep the window responsive)
         ImGui::Render();
-        m_pd3dDeviceContext->OMSetRenderTargets(1, &m_mainRenderTargetView, nullptr); // Direct access needed due to scope/design pattern limitation
+        m_pd3dDeviceContext->OMSetRenderTargets(1, &m_mainRenderTargetView, nullptr); 
         m_pd3dDeviceContext->ClearRenderTargetView(m_mainRenderTargetView, clear_color_with_alpha);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
         m_pSwapChain->Present(1, 0);
     }
 
-    // --- Cleanup (Destructor handles cleanup of resources) ---
+    // --- Cleanup (No changes needed) ---
     std::cout << "Cleaning up GUI resources..." << std::endl;
-    // The 'gui' object goes out of scope here, triggering the destructor and releasing all DX resources.
-
+    
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();

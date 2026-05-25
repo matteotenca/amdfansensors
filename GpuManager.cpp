@@ -157,15 +157,6 @@ void GpuManager::ShowTotalSystemMemory() const {
     }
 }
 
-//void GpuManager::GetGPUStates() const {
-//    adlx_int volt = 0;
-//    ADLX_RESULT res = m_manualGFXTuning2->GetGPUVoltage(&volt);
-//    if (ADLX_FAILED(res)) {
-//        std::cerr << "Failed to get GPU voltage" << std::endl;
-//        return;
-//    }
-//    std::cout << "Current GPU clock voltage offset: " << volt << " mV" << std::endl;
-//}
 
 void GpuManager::SetVoltageOffset(adlx_int voltage) const {
     adlx_int currentVolt = 0;

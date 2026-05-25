@@ -1,5 +1,6 @@
 #ifndef AMDFANSENSORS_WINDOW_H
 #define AMDFANSENSORS_WINDOW_H
+#pragma once
 
 // Windows headers
 #include <windows.h>
@@ -24,17 +25,13 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
  */
 class GuiWindow {
 public:
-    // GuiWindow(HWND hWnd) : m_hWnd(hWnd),
-    //                        m_pSwapChain(nullptr),
-    //                        m_pd3dDevice(nullptr),
-    //                        m_pd3dDeviceContext(nullptr),
-    //                        m_mainRenderTargetView(nullptr) {}
+
 
     // Initialize DirectX, ImGui and the main loop resources.
     bool Initialize(int refreshRateMs);
 
     // Run the main application loop (handles messages and rendering).
-    void RunLoop() const;
+    // void RunLoop() const;
     int OpenWin(GpuManager& manager, int refreshRateMs, bool fpsOnly = false);
 
     // Clean up all allocated DirectX/ImGui resources.
@@ -56,7 +53,5 @@ private:
 };
 
 
-// Main window application entry point. Uses the GuiWindow class internally.
-// int OpenWin(GpuManager& manager, int refreshRateMs = 1000);
 
 #endif //AMDFANSENSORS_WINDOW_H
