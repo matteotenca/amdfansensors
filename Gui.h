@@ -26,16 +26,18 @@ LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPara
 class GuiWindow {
 public:
 
-
     // Initialize DirectX, ImGui and the main loop resources.
-    bool Initialize(int refreshRateMs);
+    bool Initialize(int refreshRateMs, int refreshRateFPS = 1000);
 
     // Run the main application loop (handles messages and rendering).
     // void RunLoop() const;
-    int OpenWin(GpuManager& manager, int refreshRateMs, bool fpsOnly = false);
+    int OpenWin(GpuManager& manager, int refreshRateMs, int refreshRateFPS = 1000, bool fpsOnly = false);
 
     // Clean up all allocated DirectX/ImGui resources.
     ~GuiWindow();
+
+    int refreshRateMs = 1000;
+    int refreshRateFPSMs = 1000;
 
 private:
     HWND m_hWnd = nullptr;
@@ -43,11 +45,11 @@ private:
     ID3D11DeviceContext* m_pd3dDeviceContext = nullptr;
     IDXGISwapChain* m_pSwapChain = nullptr;
     ID3D11RenderTargetView* m_mainRenderTargetView = nullptr;
-    int refreshRateMs = 1000;
+
 
     // Internal methods for DX setup/cleanup
     bool CreateDeviceD3D();
-    void CreateRenderTarget();
+    bool CreateRenderTarget();
     void CleanupRenderTarget();
     void CleanupDeviceD3D();
 };

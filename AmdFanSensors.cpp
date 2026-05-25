@@ -26,6 +26,7 @@ int main(const int argc, char* argv[]) {
 		bool showTotalRam = false;
 		bool enableGui = false;
 		int refreshRateMs = 1000;
+		int refreshRateFPSMs = 1000;
 		bool fpsOnly = false;  // NEW: FPS-only monitoring mode flag
 
 		adlx_int voltageOffset = 0;  // NEW: stores voltage offset from command line
@@ -81,7 +82,7 @@ int main(const int argc, char* argv[]) {
 			}
 			else if (arg == "--show-total-ram" || arg == "-g") { showTotalRam = true; defaultMode = false; }
 			else if (arg == "--enable-gui" || arg == "-G") { enableGui = true; defaultMode = false; }
-			else if (arg == "--refresh-rate" || arg == "-a=" || arg.substr(0, 3) == "-a=" || arg.substr(0, 9) == "--refresh=") {
+			else if (arg == "--refresh-rate" || arg == "-a=" || arg.substr(0, 3) == "-a=" || arg.substr(0, 15) == "--refresh-rate=") {
 				// Handle refresh rate parameter
 				size_t equalsPos = arg.find('=');
 				std::string refreshStr;
@@ -102,6 +103,30 @@ int main(const int argc, char* argv[]) {
 						<< "Received: " << newRefreshRate << "ms. "
 						<< "Using default value of 1000ms." << std::endl;
 					refreshRateMs = 1000;
+				}
+				enableGui = true;
+			}
+			else if (arg == "--refresh-rate-fps" || arg == "-A=" || arg.substr(0, 3) == "-A=" || arg.substr(0, 19) == "--refresh-rate-fps=") {
+				// Handle refresh rate parameter
+				size_t equalsPos = arg.find('=');
+				std::string refreshStr;
+				if (equalsPos != std::string::npos) {
+					refreshStr = arg.substr(equalsPos + 1);
+				} else {
+					refreshStr = "1000";
+				}
+
+				char* endptr = nullptr;
+				int newRefreshRate = static_cast<int>(strtol(refreshStr.c_str(), &endptr, 10));
+
+				// VALIDATE: Refresh rate must be between 100ms and 5000ms
+				if (newRefreshRate >= 100 && newRefreshRate <= 5000) {
+					refreshRateFPSMs = newRefreshRate;
+				} else {
+					std::cerr << "Error: FPS refresh rate must be between 100ms and 5000ms. "
+						<< "Received: " << newRefreshRate << "ms. "
+						<< "Using default value of 1000ms." << std::endl;
+					refreshRateFPSMs = 1000;
 				}
 				enableGui = true;
 			}
@@ -127,12 +152,12 @@ int main(const int argc, char* argv[]) {
 				<< "  -G, --enable-gui        Enable the GUI (default: disabled).\n"
 				<< "  -a=N, --refresh-rate=N  Set refresh rate in milliseconds (e.g., --refresh-rate=500).\n"
 				<< "                          Range: 100ms to 5000ms (default: 1000ms).\n"
+				<< "  -A=N, --refresh-rate-fps=N  Set FPS refresh rate in milliseconds (e.g., --refresh-rate-fps=500).\n"
+				<< "                          Range: 100ms to 5000ms (default: 1000ms).\n"
 				<< "  -u, --fps-only          Show only FPS in GUI (default: false).\n"
 				<< "  -h, --help              Show this help message." << std::endl;
 			return 0;
 		}
-
-
 
 		if (defaultMode) {
 			std::cout << "No specific metrics flag provided. Showing all available metrics." << std::endl;
@@ -159,7 +184,7 @@ int main(const int argc, char* argv[]) {
 		}
 		if (enableGui) {
 			GuiWindow guiWindow;
-			guiWindow.OpenWin(manager, refreshRateMs, fpsOnly);
+			return guiWindow.OpenWin(manager, refreshRateMs, refreshRateFPSMs, fpsOnly);
 		}
 
 	}
