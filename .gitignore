@@ -7,3 +7,5 @@
 /.idea/
 /vcpkg_installed/
 /imgui.ini
+/*.bak
+

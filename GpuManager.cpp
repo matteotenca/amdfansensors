@@ -23,62 +23,11 @@ GpuManager::GpuManager() {
     cleanUp(res);
     std::cout << gpuName << " is selected." << std::endl;
 
-    IADLXPerformanceMonitoringServicesPtr perfMonitoringServices;
-    res = g_ADLX.GetSystemServices()->GetPerformanceMonitoringServices(&perfMonitoringServices);
-    cleanUp(res);
-
-    m_perfMonitoringServices = perfMonitoringServices;
-
-    res = perfMonitoringServices->GetSupportedGPUMetrics(m_oneGPU, &m_gpuMetricsSupport);
-    cleanUp(res);
-
-    IADLXAllMetricsPtr allMetrics;
-    res = perfMonitoringServices->GetCurrentAllMetrics(&allMetrics);
-    cleanUp(res, "Get current all metrics");
-
-    res = allMetrics->GetGPUMetrics(m_oneGPU, &m_gpuMetrics);
-    cleanUp(res);
-
-    res = perfMonitoringServices->GetSupportedSystemMetrics(&m_systemMetricsSupport);
-    cleanUp(res);
-
-    res = allMetrics->GetSystemMetrics(&m_systemMetrics);
-    cleanUp(res);
-
-    res = g_ADLX.GetSystemServices()->GetGPUTuningServices(&m_gpuTuningService);
-    cleanUp(res);
-
-    IADLXInterfacePtr manualFanTuningIfc;
-    res = m_gpuTuningService->GetManualFanTuning(m_oneGPU, &manualFanTuningIfc);
-    cleanUp(res, "Get manual fan tuning interface");
-
-    // res = manualFanTuningIfc->QueryInterface(L"IADLXManualFanTuning", reinterpret_cast<void**>(&m_manualFanTuning));
-    // cleanUp(res, "Get manual fan tuning pointer");
-    m_manualFanTuning = static_cast<IADLXManualFanTuningPtr>(manualFanTuningIfc);
-
-    IADLXInterfacePtr manualGFXTuningIfc;
-    res = m_gpuTuningService->GetManualGFXTuning(m_oneGPU, &manualGFXTuningIfc);
-    cleanUp(res, "Get manual graphics tuning interface");
-    // res = manualGFXTuningIfc->QueryInterface(L"IADLXManualGraphicsTuning2", reinterpret_cast<void**>(&m_manualGFXTuning2));
-    // cleanUp(res, "Get manual graphics tuning pointer");
-    m_manualGFXTuning2 = static_cast<IADLXManualGraphicsTuning2Ptr>(manualGFXTuningIfc);
-
+    // Basic system info is still fetched here as it's cheap and non-ADLX specific
     MEMORYSTATUSEX memInfo{};
     memInfo.dwLength = sizeof(MEMORYSTATUSEX);
     if (GlobalMemoryStatusEx(&memInfo)) {
         m_statusInfo.totalSystemRamMB = memInfo.ullTotalPhys / (1024 * 1024);
-    }
-
-    adlx_bool isZeroRPM = false;
-    ADLX_RESULT resZeroRPM = m_manualFanTuning->GetZeroRPMState(&isZeroRPM);
-    if (ADLX_SUCCEEDED(resZeroRPM)) {
-        m_statusInfo.zeroRPMEnabled = isZeroRPM;
-    }
-
-    adlx_int voltage = 0;
-    res = m_manualGFXTuning2->GetGPUVoltage(&voltage);
-    if (ADLX_SUCCEEDED(res)) {
-        m_statusInfo.voltageOffsetMV = voltage;
     }
 
     adlx_uint totalVramMB = 0;
@@ -89,6 +38,70 @@ GpuManager::GpuManager() {
 }
 
 GpuManager::~GpuManager() = default;
+
+void GpuManager::EnsurePerfServices() const {
+    if (m_perfMonitoringServices) return;
+    ADLX_RESULT res = g_ADLX.GetSystemServices()->GetPerformanceMonitoringServices(&m_perfMonitoringServices);
+    cleanUp(res, "Get performance monitoring services");
+    res = m_perfMonitoringServices->GetSupportedGPUMetrics(m_oneGPU, &m_gpuMetricsSupport);
+    cleanUp(res, "Get supported GPU metrics support");
+}
+
+void GpuManager::EnsureTuningService() const {
+    if (m_gpuTuningService) return;
+    ADLX_RESULT res = g_ADLX.GetSystemServices()->GetGPUTuningServices(&m_gpuTuningService);
+    cleanUp(res, "Get GPU tuning services");
+}
+
+void GpuManager::EnsureFanTuning() {
+    if (m_manualFanTuning) return;
+    EnsureTuningService();
+    IADLXInterfacePtr manualFanTuningIfc;
+    ADLX_RESULT res = m_gpuTuningService->GetManualFanTuning(m_oneGPU, &manualFanTuningIfc);
+    cleanUp(res, "Get manual fan tuning interface");
+    m_manualFanTuning = static_cast<IADLXManualFanTuningPtr>(manualFanTuningIfc);
+
+    adlx_bool isZeroRPM = false;
+    if (ADLX_SUCCEEDED(m_manualFanTuning->GetZeroRPMState(&isZeroRPM))) {
+        m_statusInfo.zeroRPMEnabled = isZeroRPM;
+    }
+}
+
+void GpuManager::EnsureGfxTuning() const {
+    if (m_manualGFXTuning2) return;
+    EnsureTuningService();
+    IADLXInterfacePtr manualGFXTuningIfc;
+    ADLX_RESULT res = m_gpuTuningService->GetManualGFXTuning(m_oneGPU, &manualGFXTuningIfc);
+    cleanUp(res, "Get manual graphics tuning interface");
+    m_manualGFXTuning2 = static_cast<IADLXManualGraphicsTuning2Ptr>(manualGFXTuningIfc);
+
+    adlx_int voltage = 0;
+    if (ADLX_SUCCEEDED(m_manualGFXTuning2->GetGPUVoltage(&voltage))) {
+        m_statusInfo.voltageOffsetMV = voltage;
+    }
+}
+
+void GpuManager::EnsureGpuMetrics() const {
+    if (m_gpuMetrics) return;
+    EnsurePerfServices();
+    IADLXAllMetricsPtr allMetrics;
+    ADLX_RESULT res = m_perfMonitoringServices->GetCurrentAllMetrics(&allMetrics);
+    cleanUp(res, "Get all metrics for GPU snapshot");
+    res = allMetrics->GetGPUMetrics(m_oneGPU, &m_gpuMetrics);
+    cleanUp(res, "Get GPU metrics snapshot");
+}
+
+void GpuManager::EnsureSystemMetrics() const {
+    if (m_systemMetrics) return;
+    EnsurePerfServices();
+    ADLX_RESULT res = m_perfMonitoringServices->GetSupportedSystemMetrics(&m_systemMetricsSupport);
+    cleanUp(res, "Get system metrics support");
+    IADLXAllMetricsPtr allMetrics;
+    res = m_perfMonitoringServices->GetCurrentAllMetrics(&allMetrics);
+    cleanUp(res, "Get all metrics for system snapshot");
+    res = allMetrics->GetSystemMetrics(&m_systemMetrics);
+    cleanUp(res, "Get system metrics snapshot");
+}
 
 void GpuManager::cleanUp(ADLX_RESULT res, const char* msg) {
     if (ADLX_FAILED(res)) {
@@ -101,7 +114,8 @@ GpuManager::GpuStatusInfo GpuManager::GetStatusInfo() const {
     return m_statusInfo;
 }
 
-void GpuManager::ShowZeroRPMStatus() const {
+void GpuManager::ShowZeroRPMStatus() {
+    EnsureFanTuning();
     if (m_statusInfo.zeroRPMEnabled) {
         std::cout << "ZeroRPM is currently active (enabled)." << std::endl;
     }
@@ -111,6 +125,7 @@ void GpuManager::ShowZeroRPMStatus() const {
 }
 
 void GpuManager::ToggleZeroRPM() {
+    EnsureFanTuning();
     adlx_bool supported = false;
     ADLX_RESULT res = m_manualFanTuning->IsSupportedZeroRPM(&supported);
     if (ADLX_FAILED(res)) {
@@ -150,6 +165,7 @@ void GpuManager::ShowTotalSystemMemory() const {
 }
 
 void GpuManager::SetVoltageOffset(adlx_int voltage) const {
+    EnsureGfxTuning();
     adlx_int currentVolt = 0;
     ADLX_RESULT res = m_manualGFXTuning2->GetGPUVoltage(&currentVolt);
     cleanUp(res);
@@ -175,6 +191,7 @@ void GpuManager::SetVoltageOffset(adlx_int voltage) const {
 }
 
 void GpuManager::SetVoltageOffsetFromCLI(adlx_int voltage) const {
+    EnsureGfxTuning();
     if (voltage == 0) {
         std::cout << "Voltage offset was not specified or set to 0 (no change)." << std::endl;
         return;
@@ -191,10 +208,12 @@ void GpuManager::SetVoltageOffsetFromCLI(adlx_int voltage) const {
 }
 
 adlx_int GpuManager::GetVoltageOffset() const {
+    EnsureGfxTuning();
     return m_statusInfo.voltageOffsetMV;
 }
 
-void GpuManager::ShowGetAndSetFan(bool setRamp, bool defaultRamp) const {
+void GpuManager::ShowGetAndSetFan(bool setRamp, bool defaultRamp) {
+    EnsureFanTuning();
     ADLX_IntRange fanSpeedRange, fanTemperatureRange;
     ADLX_RESULT res = m_manualFanTuning->GetFanTuningRanges(&fanSpeedRange, &fanTemperatureRange);
     cleanUp(res);
@@ -278,6 +297,8 @@ void GpuManager::ShowGetAndSetFan(bool setRamp, bool defaultRamp) const {
 }
 
 void GpuManager::ShowGPUVRAM() const {
+    EnsurePerfServices();
+    EnsureGpuMetrics();
     adlx_bool supported = false;
     ADLX_RESULT res = m_gpuMetricsSupport->IsSupportedGPUVRAM(&supported);
     if (ADLX_SUCCEEDED(res) && supported) {
@@ -295,6 +316,8 @@ void GpuManager::ShowGPUVRAM() const {
 }
 
 void GpuManager::ShowGPUMemoryTemperature() const {
+    EnsurePerfServices();
+    EnsureGpuMetrics();
     adlx_bool supported = false;
     const IADLXGPUMetricsSupport1Ptr gpuMetricsSupport1(m_gpuMetricsSupport);
     const IADLXGPUMetrics1Ptr gpuMetrics1(m_gpuMetrics);
@@ -327,6 +350,7 @@ void GpuManager::UpdateGpuTempStruct(bool fpsOnly) {
     IADLXFPSPtr oneFPS;
     adlx_int fpsData = 0;
 
+    EnsurePerfServices();
     // Optimization: Only fetch AllMetrics once per call
     IADLXAllMetricsPtr allMetrics;
     ADLX_RESULT res = m_perfMonitoringServices->GetCurrentAllMetrics(&allMetrics);
@@ -406,6 +430,8 @@ void GpuManager::UpdateGpuTempStruct(bool fpsOnly) {
 }
 
 void GpuManager::ShowGPUVoltage() const {
+    EnsurePerfServices();
+    EnsureGpuMetrics();
     adlx_bool supported = false;
     ADLX_RESULT res = m_gpuMetricsSupport->IsSupportedGPUVoltage(&supported);
     if (ADLX_SUCCEEDED(res) && supported) {
@@ -420,6 +446,8 @@ void GpuManager::ShowGPUVoltage() const {
 }
 
 void GpuManager::ShowSystemRAM() const {
+    EnsurePerfServices();
+    EnsureSystemMetrics();
     adlx_bool supported = false;
     ADLX_RESULT res = m_systemMetricsSupport->IsSupportedSystemRAM(&supported);
     if (ADLX_SUCCEEDED(res) && supported) {

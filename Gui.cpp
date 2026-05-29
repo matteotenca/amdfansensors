@@ -129,15 +129,16 @@ bool GuiWindow::Initialize(int refreshRate, int refreshRateFPS) {
 int GuiWindow::OpenWin(GpuManager& manager, const int refreshRate, const int refreshRateFPS, const bool fpsOnly) {
     int error = 0;
     // Setup Window Class (No changes needed)
-    WNDCLASSEX wc;
+    //WNDCLASSEX wc;
+    WNDCLASSEXW wc;
     wc = {
-        sizeof(WNDCLASSEX), CS_CLASSDC, WindowProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr,
+        sizeof(WNDCLASSEXW), CS_CLASSDC, WindowProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr,
         nullptr,
-        static_cast<LPCSTR>("ImGuiWindow"), nullptr
+        L"ImGuiWindow", nullptr
     };
-    RegisterClassEx(&wc);
-
-    m_hWnd = CreateWindow(wc.lpszClassName, "GPU Temperature Monitor",
+    RegisterClassExW(&wc);
+	//LPCWSTR title = L"GPU Temperature Monitor";
+    m_hWnd = CreateWindowW(wc.lpszClassName, L"GPU Temperature Monitor",
                           WS_OVERLAPPEDWINDOW, 100, 100, 640, 480, nullptr, nullptr, wc.hInstance, nullptr);
 
     std::cout << "Initializing GUI resources..." << std::endl;

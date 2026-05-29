@@ -1,7 +1,7 @@
 #ifndef AMDFANSENSORS_WINDOW_H
 #define AMDFANSENSORS_WINDOW_H
 #pragma once
-
+#define UNICODE
 #include <windows.h>
 #include <d3d11.h>
 #include <wrl/client.h> // Added for ComPtr

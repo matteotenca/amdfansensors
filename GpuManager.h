@@ -1,6 +1,7 @@
 #ifndef GPU_MANAGER_H
 #define GPU_MANAGER_H
 #pragma once
+#define UNICODE
 #include <ADLX.h>
 #include <IGPUManualFanTuning.h>
 #include <IGPUTuning.h>
@@ -134,30 +135,39 @@ public:
     void ShowTotalSystemMemory() const;
 
     // ZeroRPM specific methods - split into read and toggle
-    void ShowZeroRPMStatus() const; // Reads status from struct
+    void ShowZeroRPMStatus(); // Reads status from struct
     void ToggleZeroRPM(); // Toggles ZeroRPM state
 
     // Tuning methods
-    void ShowGetAndSetFan(bool setRamp, bool defaultRamp) const;
+    void ShowGetAndSetFan(bool setRamp, bool defaultRamp);
     void SetVoltageOffset(adlx_int voltage) const; // UPDATED: Added voltage parameter
     //void GetGPUStates() const;
     void SetVoltageOffsetFromCLI(adlx_int voltage) const; // NEW: Added from CLI
     adlx_int GetVoltageOffset() const; // NEW: Getter for voltage offset
-    IADLXManualGraphicsTuning2Ptr m_manualGFXTuning2 = nullptr;
-    IADLXGPUMetricsSupportPtr m_gpuMetricsSupport = nullptr;
-    IADLXGPUMetricsPtr m_gpuMetrics = nullptr;
-    IADLXSystemMetricsSupportPtr m_systemMetricsSupport = nullptr;
-    IADLXSystemMetricsPtr m_systemMetrics = nullptr;
 
-    IADLXGPUTuningServicesPtr m_gpuTuningService = nullptr;
-    IADLXManualFanTuningPtr m_manualFanTuning = nullptr;
-    IADLXPerformanceMonitoringServicesPtr m_perfMonitoringServices = nullptr;
-    //ADLXHelper m_adlxHelp;
+    // Pointers are now mutable to allow lazy-loading initialization within const methods
+    mutable IADLXManualGraphicsTuning2Ptr m_manualGFXTuning2 = nullptr;
+    mutable IADLXGPUMetricsSupportPtr m_gpuMetricsSupport = nullptr;
+    mutable IADLXGPUMetricsPtr m_gpuMetrics = nullptr;
+    mutable IADLXSystemMetricsSupportPtr m_systemMetricsSupport = nullptr;
+    mutable IADLXSystemMetricsPtr m_systemMetrics = nullptr;
+
+    mutable IADLXGPUTuningServicesPtr m_gpuTuningService = nullptr;
+    mutable IADLXManualFanTuningPtr m_manualFanTuning = nullptr;
+    mutable IADLXPerformanceMonitoringServicesPtr m_perfMonitoringServices = nullptr;
+
     IADLXGPUPtr m_oneGPU = nullptr;
-    //adlx_uint m_totalVram;
     GpuStatusInfo m_statusInfo; // Status information struct
     GpuTemperatureInfo m_temperatureInfo; // Temperature information struct
 private:
+    // Lazy loading helpers
+    void EnsurePerfServices() const;
+    void EnsureTuningService() const;
+    void EnsureFanTuning();
+    void EnsureGfxTuning() const;
+    void EnsureGpuMetrics() const;
+    void EnsureSystemMetrics() const;
+
     // Updated signature: accepts ADLX_RESULT and optional operation_name name
     static void cleanUp(ADLX_RESULT res, const char* operation_name = nullptr);
 };
