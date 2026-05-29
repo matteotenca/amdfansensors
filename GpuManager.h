@@ -16,6 +16,11 @@ public:
     RingBuffer() : m_head(0), m_tail(0), m_count(0) {
     }
 
+    /// Retrieves an element at the specified logical position relative to the head.
+    /// @param pos The logical index to retrieve, where 0 is the oldest element (head).
+    /// @param value Reference where the retrieved value will be stored if the index is valid.
+    /// @return True if the position is within bounds (pos < size()) and the value was retrieved, false otherwise.
+    /// This operation is O(1).
     bool get(size_t pos, T& value) {
         if (pos >= m_count) return false;
         // Calculate physical index based on head offset
@@ -23,6 +28,11 @@ public:
         return true;
     }
 
+    /// Adds a new element to the end of the buffer (tail).
+    /// If the buffer is at capacity, the oldest element (head) is overwritten and the head pointer advances.
+    /// @param value The element to be added to the buffer.
+    /// @return Always returns true, as the buffer overwrites oldest data rather than failing.
+    /// This operation is O(1).
     bool push_back(const T& value) {
         m_buffer[m_tail] = value;
 
@@ -76,15 +86,20 @@ public:
         m_count = 0;
     }
 
-    /// Returns the current number of elements currently stored in the buffer.
-    /// @return The count of active elements (between 0 and Capacity-1). O(1) operation. Always less than or equal to capacity, since push_back returns false when full prevents overflow beyond this threshold.
+    /// Gets the current number of elements stored in the ring buffer.
+    /// @return The number of valid elements currently in the buffer (0 to Capacity).
+    /// This operation is O(1).
     size_t size() const { return m_count; }
 
     /// Checks if the ring buffer contains no elements at all. Can be used as a boolean condition (e.g., while(!buffer.isEmpty())). Returns true when isEmpty(). Returns false even when the buffer is empty due to push_back failure, or full but not exceeding capacity).
     bool isEmpty() const { return m_count == 0; }
 
-    /// Checks if the ring buffer has reached maximum occupancy limit. When true, any further calls to push_back will fail immediately (returning false) without storing new data and returning an error condition until reset() is called or elements are removed via pop_front().
+    /// Checks if the ring buffer has reached its maximum capacity.
+    /// When the buffer is full, subsequent calls to push_back will begin overwriting the oldest elements.
+    /// @return True if the number of elements has reached Capacity, false otherwise.
+    /// This operation is O(1).
     bool isFull() const { return m_count >= Capacity; }
+
 
 private:
     T m_buffer[Capacity];
@@ -117,6 +132,7 @@ public:
         mutable adlx_int maxFPS = 0;
         mutable adlx_int minFPS = 0;
         mutable adlx_int avgFPS = 0;
+        mutable adlx_int totalFPS = 0;
         // Ring buffer for FPS history - O(1) operations, no reallocations
         RingBuffer<adlx_int, 1000> fpsHistory;
     };
@@ -148,25 +164,30 @@ public:
     // Pointers are now mutable to allow lazy-loading initialization within const methods
     mutable IADLXManualGraphicsTuning2Ptr m_manualGFXTuning2 = nullptr;
     mutable IADLXGPUMetricsSupportPtr m_gpuMetricsSupport = nullptr;
-    mutable IADLXGPUMetricsPtr m_gpuMetrics = nullptr;
+    // mutable IADLXGPUMetricsPtr m_gpuMetrics = nullptr;
     mutable IADLXSystemMetricsSupportPtr m_systemMetricsSupport = nullptr;
-    mutable IADLXSystemMetricsPtr m_systemMetrics = nullptr;
+    // mutable IADLXSystemMetricsPtr m_systemMetrics = nullptr;
 
     mutable IADLXGPUTuningServicesPtr m_gpuTuningService = nullptr;
     mutable IADLXManualFanTuningPtr m_manualFanTuning = nullptr;
     mutable IADLXPerformanceMonitoringServicesPtr m_perfMonitoringServices = nullptr;
-
+    // mutable IADLXAllMetricsPtr m_allMetrics = nullptr;
     IADLXGPUPtr m_oneGPU = nullptr;
     GpuStatusInfo m_statusInfo; // Status information struct
     GpuTemperatureInfo m_temperatureInfo; // Temperature information struct
 private:
     // Lazy loading helpers
+    // void EnsureAllMetrics() const;
     void EnsurePerfServices() const;
     void EnsureTuningService() const;
     void EnsureFanTuning();
     void EnsureGfxTuning() const;
-    void EnsureGpuMetrics() const;
-    void EnsureSystemMetrics() const;
+    IADLXGPUMetricsPtr GetCurrentGpuMetrics() const;
+    void EnsureSystemMetricsSupport() const;
+    IADLXSystemMetricsPtr GetCurrentSystemMetrics() const;
+    IADLXAllMetricsPtr GetCurrentAllMetrics() const;
+    // void GetCurrentGpuMetrics() const;
+    // void EnsureSystemMetrics() const;
 
     // Updated signature: accepts ADLX_RESULT and optional operation_name name
     static void cleanUp(ADLX_RESULT res, const char* operation_name = nullptr);

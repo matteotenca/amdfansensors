@@ -22,11 +22,12 @@ add_executable(AmdFanSensors
 		Gui.cpp
 		Gui.h
 )
+#add_executable(PerfAllMetrics
+#		mainPerfAllMetrics.cpp
+#		ADLXHelper.cpp
+#		ADLXHelper.h
+#		WinApis.cpp
+#)
 
 target_link_libraries(AmdFanSensors PRIVATE imgui::imgui)
-target_link_libraries(AmdFanSensors PRIVATE
-		d3d11
-)
-#		d3dcompiler
-#		dxgi
-#)
+target_link_libraries(AmdFanSensors PRIVATE d3d11)

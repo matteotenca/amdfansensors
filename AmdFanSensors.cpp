@@ -184,7 +184,8 @@ int main(const int argc, char* argv[]) {
 		}
 		if (enableGui) {
 			GuiWindow guiWindow;
-			return guiWindow.OpenWin(manager, refreshRateMs, refreshRateFPSMs, fpsOnly);
+			int res = guiWindow.OpenWin(manager, refreshRateMs, refreshRateFPSMs, fpsOnly);
+			return res;
 		}
 
 	}

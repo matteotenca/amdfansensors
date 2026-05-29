@@ -38,6 +38,9 @@ GpuManager::GpuManager() {
 }
 
 GpuManager::~GpuManager() = default;
+// GpuManager::~GpuManager() {
+    // g_ADLX.Terminate();
+// }
 
 void GpuManager::EnsurePerfServices() const {
     if (m_perfMonitoringServices) return;
@@ -81,26 +84,39 @@ void GpuManager::EnsureGfxTuning() const {
     }
 }
 
-void GpuManager::EnsureGpuMetrics() const {
-    if (m_gpuMetrics) return;
-    EnsurePerfServices();
-    IADLXAllMetricsPtr allMetrics;
-    ADLX_RESULT res = m_perfMonitoringServices->GetCurrentAllMetrics(&allMetrics);
-    cleanUp(res, "Get all metrics for GPU snapshot");
-    res = allMetrics->GetGPUMetrics(m_oneGPU, &m_gpuMetrics);
+IADLXGPUMetricsPtr GpuManager::GetCurrentGpuMetrics() const {
+    IADLXAllMetricsPtr allMetrics = GetCurrentAllMetrics();
+    IADLXGPUMetricsPtr gpuMetrics;
+    ADLX_RESULT res = allMetrics->GetGPUMetrics(m_oneGPU, &gpuMetrics);
     cleanUp(res, "Get GPU metrics snapshot");
+    return gpuMetrics;
 }
 
-void GpuManager::EnsureSystemMetrics() const {
-    if (m_systemMetrics) return;
+void GpuManager::EnsureSystemMetricsSupport() const {
+    if (m_systemMetricsSupport) return;
     EnsurePerfServices();
     ADLX_RESULT res = m_perfMonitoringServices->GetSupportedSystemMetrics(&m_systemMetricsSupport);
     cleanUp(res, "Get system metrics support");
-    IADLXAllMetricsPtr allMetrics;
-    res = m_perfMonitoringServices->GetCurrentAllMetrics(&allMetrics);
-    cleanUp(res, "Get all metrics for system snapshot");
-    res = allMetrics->GetSystemMetrics(&m_systemMetrics);
+}
+
+IADLXSystemMetricsPtr GpuManager::GetCurrentSystemMetrics() const {
+    // if (m_systemMetrics) return;
+    EnsurePerfServices();
+    IADLXAllMetricsPtr allMetrics = GetCurrentAllMetrics();
+    // ADLX_RESULT res = m_perfMonitoringServices->GetCurrentAllMetrics(&allMetrics);
+    // cleanUp(res, "Get all metrics for system snapshot");
+    IADLXSystemMetricsPtr systemMetrics;
+    ADLX_RESULT res = allMetrics->GetSystemMetrics(&systemMetrics);
     cleanUp(res, "Get system metrics snapshot");
+    return systemMetrics;
+}
+
+IADLXAllMetricsPtr GpuManager::GetCurrentAllMetrics() const {
+    EnsurePerfServices();
+    IADLXAllMetricsPtr allMetrics;
+    ADLX_RESULT res = m_perfMonitoringServices->GetCurrentAllMetrics(&allMetrics);
+    cleanUp(res, "Get all metrics for system snapshot");
+    return allMetrics;
 }
 
 void GpuManager::cleanUp(ADLX_RESULT res, const char* msg) {
@@ -209,6 +225,10 @@ void GpuManager::SetVoltageOffsetFromCLI(adlx_int voltage) const {
 
 adlx_int GpuManager::GetVoltageOffset() const {
     EnsureGfxTuning();
+    adlx_int voltage = 0;
+    if (ADLX_SUCCEEDED(m_manualGFXTuning2->GetGPUVoltage(&voltage))) {
+        m_statusInfo.voltageOffsetMV = voltage;
+    }
     return m_statusInfo.voltageOffsetMV;
 }
 
@@ -298,12 +318,12 @@ void GpuManager::ShowGetAndSetFan(bool setRamp, bool defaultRamp) {
 
 void GpuManager::ShowGPUVRAM() const {
     EnsurePerfServices();
-    EnsureGpuMetrics();
     adlx_bool supported = false;
     ADLX_RESULT res = m_gpuMetricsSupport->IsSupportedGPUVRAM(&supported);
     if (ADLX_SUCCEEDED(res) && supported) {
         adlx_int VRAM = 0;
-        res = m_gpuMetrics->GPUVRAM(&VRAM);
+        IADLXGPUMetricsPtr gpuMetrics = GetCurrentGpuMetrics();
+        res = gpuMetrics->GPUVRAM(&VRAM);
         if (ADLX_SUCCEEDED(res)) {
             std::cout << "The used GPU VRAM is: " << VRAM << " MB/" << m_statusInfo.totalGPUMemoryMB << " MB" <<
                 std::endl;
@@ -317,31 +337,31 @@ void GpuManager::ShowGPUVRAM() const {
 
 void GpuManager::ShowGPUMemoryTemperature() const {
     EnsurePerfServices();
-    EnsureGpuMetrics();
-    adlx_bool supported = false;
     const IADLXGPUMetricsSupport1Ptr gpuMetricsSupport1(m_gpuMetricsSupport);
-    const IADLXGPUMetrics1Ptr gpuMetrics1(m_gpuMetrics);
-    if (gpuMetricsSupport1 && gpuMetrics1) {
-        ADLX_RESULT res = gpuMetricsSupport1->IsSupportedGPUMemoryTemperature(&supported);
-        if (ADLX_SUCCEEDED(res) && supported) {
-            adlx_double temperature = 0;
-            adlx_int fanSpeed = 0;
-            res = gpuMetrics1->GPUMemoryTemperature(&temperature);
-            if (ADLX_SUCCEEDED(res))
-                std::cout << "The GPU memory temperature is: " << temperature << "°C" << std::endl;
-            res = gpuMetrics1->GPUHotspotTemperature(&temperature);
-            if (ADLX_SUCCEEDED(res))
-                std::cout << "The GPU hotspot temperature is: " << temperature << "°C" << std::endl;
-            res = gpuMetrics1->GPUTemperature(&temperature);
-            if (ADLX_SUCCEEDED(res))
-                std::cout << "The GPU temperature is: " << temperature << "°C" << std::endl;
-            res = gpuMetrics1->GPUFanSpeed(&fanSpeed);
-            if (ADLX_SUCCEEDED(res))
-                std::cout << "The GPU fan speed is: " << fanSpeed << std::endl;
-        }
-        else {
-            std::cout << "GPU memory temperature reading not supported." << std::endl;
-        }
+    if (!gpuMetricsSupport1) return;
+
+    adlx_bool supported = false;
+    ADLX_RESULT res = gpuMetricsSupport1->IsSupportedGPUMemoryTemperature(&supported);
+    if (ADLX_SUCCEEDED(res) && supported) {
+        const IADLXGPUMetrics1Ptr gpuMetrics1(GetCurrentGpuMetrics());
+        if (!gpuMetrics1) return;
+
+        adlx_double temperature = 0;
+        adlx_int fanSpeed = 0;
+        if (ADLX_SUCCEEDED(gpuMetrics1->GPUMemoryTemperature(&temperature)))
+            std::cout << "The GPU memory temperature is: " << temperature << "°C" << std::endl;
+
+        if (ADLX_SUCCEEDED(gpuMetrics1->GPUHotspotTemperature(&temperature)))
+            std::cout << "The GPU hotspot temperature is: " << temperature << "°C" << std::endl;
+
+        if (ADLX_SUCCEEDED(gpuMetrics1->GPUTemperature(&temperature)))
+            std::cout << "The GPU temperature is: " << temperature << "°C" << std::endl;
+
+        if (ADLX_SUCCEEDED(gpuMetrics1->GPUFanSpeed(&fanSpeed)))
+            std::cout << "The GPU fan speed is: " << fanSpeed << std::endl;
+    }
+    else {
+        std::cout << "GPU memory temperature reading not supported." << std::endl;
     }
 }
 
@@ -351,92 +371,107 @@ void GpuManager::UpdateGpuTempStruct(bool fpsOnly) {
     adlx_int fpsData = 0;
 
     EnsurePerfServices();
-    // Optimization: Only fetch AllMetrics once per call
-    IADLXAllMetricsPtr allMetrics;
-    ADLX_RESULT res = m_perfMonitoringServices->GetCurrentAllMetrics(&allMetrics);
-    if (ADLX_FAILED(res)) return; // Silent return to avoid throwing runtime_error in a high-frequency loop
+    IADLXAllMetricsPtr allMetrics = GetCurrentAllMetrics();
+    try {
+        if (fpsOnly) {
+            // 1. Always update FPS if not in a strictly-no-fps mode
+            ADLX_RESULT res = allMetrics->GetFPS(&oneFPS);
+            if (ADLX_SUCCEEDED(res)) {
+                res = oneFPS->FPS(&fpsData);
+                if (res == ADLX_NOT_SUPPORTED) {
+                    // std::cout << "ADLX_NOT_SUPPORTED" << std::endl;
+                    if (m_temperatureInfo.minFPS != 0) {
+                        m_temperatureInfo.instantFPS = 0;
+                        m_temperatureInfo.minFPS = 0;
+                        m_temperatureInfo.maxFPS = 0;
+                        m_temperatureInfo.totalFPS = 0;
+                        m_temperatureInfo.fpsHistory.reset();
+                    }
+                }
+                else if (ADLX_SUCCEEDED(res)) {
+                    if (fpsData < 9999) {
+                        // if (m_temperatureInfo.minFPS == 0) m_temperatureInfo.minFPS = 9999;
+                        if (m_temperatureInfo.fpsHistory.isFull()) {
+                            adlx_int oldestFPS = 0;
+                            if (m_temperatureInfo.fpsHistory.get(0, oldestFPS)) {
+                                m_temperatureInfo.totalFPS -= oldestFPS;
+                            }
+                        }
+                        // push_back now automatically overwrites oldest when capacity (1000) is reached
+                        m_temperatureInfo.fpsHistory.push_back(fpsData);
+                        m_temperatureInfo.totalFPS += fpsData;
+                        m_temperatureInfo.instantFPS = fpsData;
 
-    if (fpsOnly) {
-        // 1. Always update FPS if not in a strictly-no-fps mode
-        res = allMetrics->GetFPS(&oneFPS);
-        if (ADLX_SUCCEEDED(res)) {
-            res = oneFPS->FPS(&fpsData);
-            if (res == ADLX_NOT_SUPPORTED) {
-                if (m_temperatureInfo.minFPS != 0) {
-                    m_temperatureInfo.instantFPS = 0;
-                    m_temperatureInfo.minFPS = 0;
-                    m_temperatureInfo.maxFPS = 0;
-                    m_temperatureInfo.fpsHistory.reset();
+                        // Safe iteration for average calculation
+                        // adlx_int totalFPS = 0;
+                        // size_t currentSize = m_temperatureInfo.fpsHistory.size();
+                        // for (size_t i = 0; i < currentSize; ++i) {
+                        //     adlx_int tempValue;
+                        //     if (m_temperatureInfo.fpsHistory.get(i, tempValue)) {
+                        //         totalFPS += tempValue;
+                        //     }
+                        // }
+                        if (m_temperatureInfo.fpsHistory.size() == 1) {
+                            m_temperatureInfo.minFPS = fpsData;
+                            m_temperatureInfo.maxFPS = fpsData;
+                        } else {
+                            m_temperatureInfo.minFPS = min(m_temperatureInfo.minFPS, fpsData);
+                            m_temperatureInfo.maxFPS = max(m_temperatureInfo.maxFPS, fpsData);
+                        }
+                        m_temperatureInfo.avgFPS = m_temperatureInfo.fpsHistory.size() > 0 ? m_temperatureInfo.totalFPS / m_temperatureInfo.fpsHistory.size() : 0;
+                        // std::cout << fpsData << std::endl;
+                    }
                 }
             }
-            else if (ADLX_SUCCEEDED(res)) {
-                if (fpsData < 9999) {
-                    if (m_temperatureInfo.minFPS == 0) m_temperatureInfo.minFPS = 9999;
+        }
+        // 2. Optimization: Reuse the snapshot to update Temperatures/VRAM
+        else {
+            if (m_gpuMetricsSupport) {
+                IADLXGPUMetricsPtr gpuMetrics;
+                if (ADLX_SUCCEEDED(allMetrics->GetGPUMetrics(m_oneGPU, &gpuMetrics))) {
+                    IADLXGPUMetrics1Ptr gpuMetrics1(gpuMetrics);
+                    IADLXGPUMetricsSupport1Ptr gpuMetricsSupport1(m_gpuMetricsSupport);
 
-                    // push_back now automatically overwrites oldest when capacity (100) is reached
-                    m_temperatureInfo.fpsHistory.push_back(fpsData);
-                    m_temperatureInfo.instantFPS = fpsData;
-
-                    // Safe iteration for average calculation
-                    adlx_int totalFPS = 0;
-                    size_t currentSize = m_temperatureInfo.fpsHistory.size();
-                    for (size_t i = 0; i < currentSize; ++i) {
-                        adlx_int tempValue;
-                        if (m_temperatureInfo.fpsHistory.get(i, tempValue)) {
-                            totalFPS += tempValue;
+                    if (gpuMetrics1 && gpuMetricsSupport1) {
+                        ADLX_RESULT res = gpuMetricsSupport1->IsSupportedGPUMemoryTemperature(&supported);
+                        if (ADLX_SUCCEEDED(res) && supported) {
+                            adlx_double temperature = 0;
+                            adlx_int fanSpeed = 0, vRam = 0;
+                            if (ADLX_SUCCEEDED(gpuMetrics1->GPUMemoryTemperature(&temperature))) 
+                                m_temperatureInfo.gpuMemoryTemperatureC = temperature;
+                            if (ADLX_SUCCEEDED(gpuMetrics1->GPUHotspotTemperature(&temperature))) 
+                                m_temperatureInfo.gpuHotspotTemperatureC = temperature;
+                            if (ADLX_SUCCEEDED(gpuMetrics1->GPUTemperature(&temperature))) 
+                                m_temperatureInfo.gpuTemperatureC = temperature;
+                            if (ADLX_SUCCEEDED(gpuMetrics1->GPUFanSpeed(&fanSpeed))) 
+                                m_temperatureInfo.fanSpeed = fanSpeed;
+                            if (ADLX_SUCCEEDED(gpuMetrics1->GPUVRAM(&vRam))) 
+                                m_temperatureInfo.vRam = vRam;
                         }
                     }
-
-                    m_temperatureInfo.avgFPS = currentSize > 0 ? totalFPS / currentSize : 0;
-                    m_temperatureInfo.minFPS = min(m_temperatureInfo.minFPS, fpsData);
-                    m_temperatureInfo.maxFPS = max(m_temperatureInfo.maxFPS, fpsData);
                 }
             }
-            oneFPS->Release();
         }
     }
-
-    // 2. Only update Temperatures/VRAM if fpsOnly is false
-    // This prevents the expensive GPU metrics pipeline from running every few ms
-    if (!fpsOnly) {
-        IADLXGPUMetricsPtr lCurrentGpuMetrics = nullptr;
-        res = allMetrics->GetGPUMetrics(m_oneGPU, &lCurrentGpuMetrics);
-
-        if (ADLX_SUCCEEDED(res) && lCurrentGpuMetrics) {
-            // Use the cached support pointer instead of fetching it every time
-            if (m_gpuMetricsSupport) {
-                IADLXGPUMetricsSupport1Ptr gpuMetricsSupport1(m_gpuMetricsSupport);
-                IADLXGPUMetrics1Ptr gpuMetrics1(lCurrentGpuMetrics);
-
-                if (gpuMetricsSupport1 && gpuMetrics1) {
-                    res = gpuMetricsSupport1->IsSupportedGPUMemoryTemperature(&supported);
-                    if (ADLX_SUCCEEDED(res) && supported) {
-                        adlx_double temperature = 0;
-                        adlx_int fanSpeed = 0, vRam = 0;
-                        if (ADLX_SUCCEEDED(gpuMetrics1->GPUMemoryTemperature(&temperature))) m_temperatureInfo.
-                            gpuMemoryTemperatureC = temperature;
-                        if (ADLX_SUCCEEDED(gpuMetrics1->GPUHotspotTemperature(&temperature))) m_temperatureInfo.
-                            gpuHotspotTemperatureC = temperature;
-                        if (ADLX_SUCCEEDED(gpuMetrics1->GPUTemperature(&temperature))) m_temperatureInfo.gpuTemperatureC
-                            = temperature;
-                        if (ADLX_SUCCEEDED(gpuMetrics1->GPUFanSpeed(&fanSpeed))) m_temperatureInfo.fanSpeed = fanSpeed;
-                        if (ADLX_SUCCEEDED(gpuMetrics1->GPUVRAM(&vRam))) m_temperatureInfo.vRam = vRam;
-                    }
-                }
-            }
-            lCurrentGpuMetrics->Release();
-        }
+    catch (const std::exception& e) {
+        std::cerr << "Fatal Error: " << e.what() << std::endl;
+        // if (oneFPS != nullptr) {
+        //     oneFPS->Release();
+        // }
+        // if (lCurrentGpuMetrics != nullptr) {
+        //     lCurrentGpuMetrics->Release();
+        // }
     }
 }
 
 void GpuManager::ShowGPUVoltage() const {
     EnsurePerfServices();
-    EnsureGpuMetrics();
+    // GetCurrentGpuMetrics();
     adlx_bool supported = false;
     ADLX_RESULT res = m_gpuMetricsSupport->IsSupportedGPUVoltage(&supported);
     if (ADLX_SUCCEEDED(res) && supported) {
         adlx_int voltage = 0;
-        res = m_gpuMetrics->GPUVoltage(&voltage);
+        res = GetCurrentGpuMetrics()->GPUVoltage(&voltage);
         if (ADLX_SUCCEEDED(res))
             std::cout << "The GPU voltage is: " << voltage << "mV" << std::endl;
     }
@@ -447,12 +482,12 @@ void GpuManager::ShowGPUVoltage() const {
 
 void GpuManager::ShowSystemRAM() const {
     EnsurePerfServices();
-    EnsureSystemMetrics();
+    EnsureSystemMetricsSupport();
     adlx_bool supported = false;
     ADLX_RESULT res = m_systemMetricsSupport->IsSupportedSystemRAM(&supported);
     if (ADLX_SUCCEEDED(res) && supported) {
         adlx_int ramUsage = 0;
-        res = m_systemMetrics->SystemRAM(&ramUsage);
+        res = GetCurrentSystemMetrics()->SystemRAM(&ramUsage);
         if (ADLX_SUCCEEDED(res))
             std::cout << "Current system RAM usage: " << ramUsage << " MB" << std::endl;
     }
