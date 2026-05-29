@@ -228,7 +228,9 @@ int GuiWindow::OpenWin(GpuManager& manager, const int refreshRate, const int ref
                 ImGui::Text("Temperatura GPU: %0.1f °C", lastDisplayedTempInfo.gpuTemperatureC);
                 ImGui::Text("Temperatura GPU Memory: %0.1f °C", lastDisplayedTempInfo.gpuMemoryTemperatureC);
                 ImGui::Text("Temperatura GPU Hotspot: %0.1f °C", lastDisplayedTempInfo.gpuHotspotTemperatureC);
+                ImGui::Text("Utilizzo GPU: %.0f%%", lastDisplayedTempInfo.gpuUsage);
                 ImGui::Text("Velocità Ventola GPU: %d RPM", lastDisplayedTempInfo.fanSpeed);
+                ImGui::Text("Velocità Ventola GPU %%: %d%%", lastDisplayedTempInfo.fanPercent);
                 ImGui::Text("VRAM GPU occupata: %d MB", lastDisplayedTempInfo.vRam);
                 ImGui::Text("VRAM GPU libera: %d MB",
                             lastDisplayedStatusInfo.totalGPUMemoryMB - lastDisplayedTempInfo.vRam);

@@ -179,7 +179,7 @@ int main(const int argc, char* argv[]) {
 			else if (toggleZeroRPM) manager.ToggleZeroRPM();
 			if (showRamp) manager.ShowGetAndSetFan(false, false);
 			else if (setRamp || setDefaultRamp) manager.ShowGetAndSetFan(true, setDefaultRamp);
-			if (showVoltageOffset) std::cout << "Current GPU clock voltage offset: " << manager.m_statusInfo.voltageOffsetMV << " mV" << std::endl;
+			if (showVoltageOffset) std::cout << "Current GPU clock voltage offset: " << manager.GetVoltageOffset() << " mV" << std::endl;
 			else if (setVoltageOffset) manager.SetVoltageOffsetFromCLI(voltageOffset);  // Apply if not already done in defaultMode
 		}
 		if (enableGui) {

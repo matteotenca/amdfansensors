@@ -126,6 +126,7 @@ public:
         mutable adlx_double gpuMemoryTemperatureC = 0.0; // GPU memory temperature in Celsius
         mutable adlx_double gpuHotspotTemperatureC = 0.0; // GPU hotspot temperature in Celsius
         mutable adlx_int fanSpeed = 0; // GPU fan speed in RPM
+        mutable adlx_int fanPercent = 0;
         mutable adlx_int vRam = 0; // GPU VRAM used in MB
         mutable adlx_int vRamp = 0;
         mutable adlx_int instantFPS = 0;
@@ -133,6 +134,7 @@ public:
         mutable adlx_int minFPS = 0;
         mutable adlx_int avgFPS = 0;
         mutable adlx_int totalFPS = 0;
+        mutable adlx_double gpuUsage = 0.0;
         // Ring buffer for FPS history - O(1) operations, no reallocations
         RingBuffer<adlx_int, 1000> fpsHistory;
     };
@@ -159,6 +161,8 @@ public:
     void SetVoltageOffset(adlx_int voltage) const; // UPDATED: Added voltage parameter
     //void GetGPUStates() const;
     void SetVoltageOffsetFromCLI(adlx_int voltage) const; // NEW: Added from CLI
+    void ShowFanPercent() const;
+    void ShowGPUUsage() const;
     adlx_int GetVoltageOffset() const; // NEW: Getter for voltage offset
 
     // Pointers are now mutable to allow lazy-loading initialization within const methods
@@ -185,6 +189,8 @@ private:
     IADLXGPUMetricsPtr GetCurrentGpuMetrics() const;
     void EnsureSystemMetricsSupport() const;
     IADLXSystemMetricsPtr GetCurrentSystemMetrics() const;
+    adlx_int GetFanPercent() const;
+    adlx_double GetGPUUsage() const;
     IADLXAllMetricsPtr GetCurrentAllMetrics() const;
     // void GetCurrentGpuMetrics() const;
     // void EnsureSystemMetrics() const;
