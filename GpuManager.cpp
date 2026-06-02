@@ -147,6 +147,11 @@ GpuManager::GpuStatusInfo GpuManager::GetStatusInfo() const {
     return m_statusInfo;
 }
 
+int GpuManager::GetUnattended() const {
+    m_temperatureInfo.fullCounter = m_temperatureInfo.fpsHistory.unfilteredPosition();
+    return m_temperatureInfo.fullCounter;
+}
+
 adlx_int GpuManager::GetVoltageOffset() const {
     EnsureGfxTuning();
     adlx_int voltage = 0;
@@ -163,7 +168,7 @@ void GpuManager::SetVoltageOffset(adlx_int voltage) const {
     cleanUp(res);
     std::cout << "Current GPU clock voltage offset: " << currentVolt << " mV" << std::endl;
 
-    if (voltage != 0) {
+    // if (voltage != 0) {
         res = m_manualGFXTuning2->SetGPUVoltage(voltage);
         if (ADLX_RESET_NEEDED == res) {
             res = m_gpuTuningService->ResetToFactory(m_oneGPU);
@@ -179,7 +184,7 @@ void GpuManager::SetVoltageOffset(adlx_int voltage) const {
         cleanUp(res);
         std::cout << "Current GPU clock voltage offset (after set): " << currentVolt << " mV" << std::endl;
         m_statusInfo.voltageOffsetMV = currentVolt;
-    }
+    // }
 }
 
 void GpuManager::SetVoltageOffsetFromCLI(adlx_int voltage) const {
@@ -442,9 +447,12 @@ void GpuManager::UpdateGpuTempStruct(bool fpsOnly) {
                     // if (m_temperatureInfo.minFPS != 0) {
                     //     m_temperatureInfo.instantFPS = 0;
                     //     m_temperatureInfo.minFPS = 0;
-                    //     m_temperatureInfo.maxFPS = 0;
-                    m_temperatureInfo.totalFPS = 0;
-                    m_temperatureInfo.fpsHistory.reset();
+                    // if (m_temperatureInfo.maxFPS != 0) {
+                    //     m_temperatureInfo.totalUnattended++;
+                    // }
+                    // m_temperatureInfo.maxFPS = 0;
+                    // m_temperatureInfo.totalFPS = 0;
+                    // m_temperatureInfo.fpsHistory.reset();
                     // }
                 }
                 else if (ADLX_SUCCEEDED(res)) {
@@ -452,9 +460,11 @@ void GpuManager::UpdateGpuTempStruct(bool fpsOnly) {
                         // if (m_temperatureInfo.minFPS == 0) m_temperatureInfo.minFPS = 9999;
                         if (m_temperatureInfo.fpsHistory.isFull()) {
                             adlx_int oldestFPS = 0;
-                            if (m_temperatureInfo.fpsHistory.get(0, oldestFPS)) {
-                                m_temperatureInfo.totalFPS -= oldestFPS;
-                            }
+                            oldestFPS = m_temperatureInfo.fpsHistory.front();
+                            m_temperatureInfo.totalFPS -= oldestFPS;
+                            // if (m_temperatureInfo.fpsHistory.get(0, oldestFPS)) {
+                            //     m_temperatureInfo.totalFPS -= oldestFPS;
+                            // }
                         }
                         // push_back now automatically overwrites oldest when capacity (1000) is reached
                         m_temperatureInfo.fpsHistory.push_back(fpsData);
@@ -469,6 +479,7 @@ void GpuManager::UpdateGpuTempStruct(bool fpsOnly) {
                             m_temperatureInfo.maxFPS = max(m_temperatureInfo.maxFPS, fpsData);
                         }
                         m_temperatureInfo.avgFPS = m_temperatureInfo.fpsHistory.size() > 0 ? m_temperatureInfo.totalFPS / m_temperatureInfo.fpsHistory.size() : 0;
+                        m_temperatureInfo.fullCounter = m_temperatureInfo.fpsHistory.unfilteredPosition();
                         // std::cout << fpsData << std::endl;
                     }
                 }
@@ -484,10 +495,10 @@ void GpuManager::UpdateGpuTempStruct(bool fpsOnly) {
                     IADLXGPUMetricsSupport3Ptr gpuMetricsSupport3(m_gpuMetricsSupport);
                     IADLXGPUMetrics3Ptr gpuMetrics3(gpuMetrics);
 
-                    if (gpuMetrics1 && gpuMetricsSupport1 && gpuMetrics3) {
+                    if (gpuMetrics && gpuMetrics1 && gpuMetricsSupport1 && gpuMetrics3) {
                         ADLX_RESULT res = gpuMetricsSupport1->IsSupportedGPUMemoryTemperature(&supported);
                         if (ADLX_SUCCEEDED(res) && supported) {
-                            adlx_double temperature = 0, gpuUsage = 0;
+                            adlx_double temperature = 0, gpuUsage = 0, gpuPower = 0.0;
                             adlx_int fanSpeed = 0, vRam = 0, speedPercent = 0;
                             if (ADLX_SUCCEEDED(gpuMetrics1->GPUMemoryTemperature(&temperature))) 
                                 m_temperatureInfo.gpuMemoryTemperatureC = temperature;
@@ -503,6 +514,23 @@ void GpuManager::UpdateGpuTempStruct(bool fpsOnly) {
                                 m_temperatureInfo.gpuUsage = gpuUsage;
                             if (ADLX_SUCCEEDED(gpuMetrics3->GPUFanDuty(&speedPercent)))
                                 m_temperatureInfo.fanPercent = speedPercent;
+                            // supported = false;
+                            // // Get if the GPU power is supported
+                            // res = m_gpuMetricsSupport->IsSupportedGPUTotalBoardPower(&supported);
+                            // if (ADLX_SUCCEEDED(res))
+                            // {
+                            //     // std::cout << "Get if the GPU power is supported: " << supported << std::endl;
+                            //     if (supported)
+                            //     {
+                            //         adlx_double power = 0;
+                            //         res = gpuMetrics->GPUTotalBoardPower(&power);
+                            //         if (ADLX_SUCCEEDED(res))
+                            //             std::cout << "The GPU power is: " << power << "W" << std::endl;
+                            //     }
+                            // }
+                            // // res = gpuMetrics3->GPUPower(&gpuPower);
+                            if (ADLX_SUCCEEDED(gpuMetrics->GPUTotalBoardPower(&gpuPower)))
+                                m_temperatureInfo.gpuPower = gpuPower;
                         }
                     }
                 }

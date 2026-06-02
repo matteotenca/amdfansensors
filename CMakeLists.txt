@@ -24,6 +24,7 @@ add_executable(AmdFanSensors
 		GpuManager.h
 		Gui.cpp
 		Gui.h
+		Gui.ui
 )
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:__cplusplus /permissive- /std:c++17 ")
@@ -42,3 +43,31 @@ target_link_libraries(AmdFanSensors PRIVATE
     Qt6::Core 
     Qt6::EntryPointPrivate
 )
+
+#add_executable(PerfMetrics
+#		mainPerfAllMetrics.cpp
+#		ADLXHelper.cpp
+#		ADLXHelper.h
+#		WinAPIs.cpp
+#)
+#
+#add_executable(PerfGPUMetrics
+#		PerfGPUMetrics.cpp
+#		ADLXHelper.cpp
+#		ADLXHelper.h
+#		WinAPIs.cpp
+#)
+#
+#add_executable(AutoTune
+#		AutoTune.cpp
+#		ADLXHelper.cpp
+#		ADLXHelper.h
+#		WinAPIs.cpp
+#)
+#
+#add_executable(PerfFPSMetrics
+#		mainPerfFPSMetrics.cpp
+#		ADLXHelper.cpp
+#		ADLXHelper.h
+#		WinAPIs.cpp
+#)

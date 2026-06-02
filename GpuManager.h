@@ -12,7 +12,7 @@
 template <typename T, size_t Capacity>
 class RingBuffer {
 public:
-    RingBuffer() : m_head(0), m_tail(0), m_count(0) {
+    RingBuffer() : m_head(0), m_tail(0), m_count(0), m_fullCounter(0) {
     }
 
     /// Retrieves an element at the specified logical position relative to the head.
@@ -34,6 +34,12 @@ public:
     /// This operation is O(1).
     bool push_back(const T& value) {
         m_buffer[m_tail] = value;
+        size_t current_tail = m_tail;
+
+        if (m_incFullCounter) {
+            m_fullCounter++;
+            m_incFullCounter = false;
+        }
 
         if (m_count == Capacity) {
             // Buffer is full: advance head to overwrite the oldest element
@@ -44,6 +50,9 @@ public:
         }
 
         m_tail = (m_tail + 1) % Capacity;
+        if (current_tail > m_tail && m_tail == 0) {
+            m_incFullCounter = true;
+        }
         return true;
     }
 
@@ -83,6 +92,12 @@ public:
         m_head = 0;
         m_tail = 0;
         m_count = 0;
+        m_fullCounter = 0;
+        m_incFullCounter = false;
+    }
+
+    size_t unfilteredPosition() const {
+        return m_fullCounter;
     }
 
     /// Gets the current number of elements stored in the ring buffer.
@@ -105,6 +120,8 @@ private:
     size_t m_head; // Index of oldest element
     size_t m_tail; // Index where next element will be written
     size_t m_count; // Current number of valid elements
+    size_t m_fullCounter;
+    bool m_incFullCounter = false;
 };
 
 class GpuManager {
@@ -134,6 +151,9 @@ public:
         mutable adlx_int avgFPS = 0;
         mutable adlx_int totalFPS = 0;
         mutable adlx_double gpuUsage = 0.0;
+        mutable adlx_double gpuPower = 0.0;
+        mutable adlx_int totalUnattended = 0;
+        mutable int fullCounter = 0;
         // Ring buffer for FPS history - O(1) operations, no reallocations
         RingBuffer<adlx_int, 1000> fpsHistory;
     };
@@ -142,7 +162,7 @@ public:
     GpuManager& operator=(const GpuManager&) = delete;
 
     GpuStatusInfo GetStatusInfo() const;
-
+    int GetUnattended() const;
     // Monitoring methods - marked const as they don't modify state
     void ShowGPUVRAM() const;
     void ShowGPUMemoryTemperature() const;

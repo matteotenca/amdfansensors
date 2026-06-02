@@ -4,16 +4,14 @@
 
 #include <QMainWindow>
 #include <QTimer>
-#include <QLabel>
-#include <QVBoxLayout>
-#include <QGroupBox>
-#include <QProgressBar>
 #include "GpuManager.h"
 
-/**
- * @brief Class responsible for managing the rendering context and game loop.
- * Now utilizes Qt 6.7.2 for cross-platform UI management.
- */
+
+
+namespace Ui {
+    class GuiWindow;
+}
+
 class GuiWindow : public QMainWindow {
     Q_OBJECT
 public:
@@ -26,6 +24,7 @@ public:
 private slots:
     void updateHardwareMetrics();
     void updateFpsMetrics();
+    void onResetFpsClicked();
 
 private:
     GpuManager& m_manager;
@@ -36,29 +35,6 @@ private:
     int m_refreshRate;
     int m_refreshRateFPS;
 
-    // UI Structure Elements
-    QWidget* m_centralWidget;
-    QVBoxLayout* m_mainLayout;
-
-    QGroupBox* m_hardwareGroup;
-    QGroupBox* m_fpsGroup;
-
-    // Hardware Labels & Widgets
-    QLabel* m_statusLabel; // Per la VRAM
-    QLabel* m_gpuTempLabel;
-    QLabel* m_hotspotTempLabel;
-    QLabel* m_memTempLabel;
-    QLabel* m_fanLabel;
-    QLabel* m_mempryLabel;
-    QProgressBar* m_memoryBar;
-    QProgressBar* m_fanBar;
-
-    // FPS Labels
-    QLabel* m_instantFpsLabel;
-    QLabel* m_avgFpsLabel;
-    QLabel* m_minMaxFpsLabel;
-
-    void setupUi();
-    void applyStylesheet();
+    Ui::GuiWindow *ui;
 };
 #endif //AMDFANSENSORS_WINDOW_H

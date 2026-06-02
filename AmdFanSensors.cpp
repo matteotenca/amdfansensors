@@ -7,6 +7,51 @@
 #include <iostream>
 #include <string>
 
+// bool validateRefreshRateFPS(int& refreshRateFPSMs, std::string arg) {
+// 	bool defaultMode;
+// 	bool enableGui;
+// 	// Handle refresh rate parameter
+// 	size_t equalsPos = arg.find('=');
+// 	std::string refreshRateFPSStr;
+// 	if (equalsPos != std::string::npos) {
+// 		refreshRateFPSStr = arg.substr(equalsPos + 1);
+// 	} else {
+// 		refreshRateFPSStr = "1000";
+// 	}
+//
+// 	// char* endptr = nullptr;
+//
+// 	// VALIDATE: Refresh rate must be between 100ms and 5000ms
+// 	// int newRefreshRateFPS = static_cast<int>(strtol(refresRateFPShStr.c_str(), &endptr, 10));
+// 	long newRefreshRateFPS;
+// 	auto result = std::from_chars(refreshRateFPSStr.data(), refreshRateFPSStr.data() + refreshRateFPSStr.size(), newRefreshRateFPS, 10);
+// 	if (result.ec != std::errc{}) {
+// 		std::cerr << "Error: Invalid refresh rate value: " << refreshRateFPSStr << std::endl;
+// 		return true;
+// 	}
+//
+// 	// if (endptr == refresRateFPShStr.c_str()) {
+// 	// 	std::cerr << "Error: Invalid refresh rate value: " << refresRateFPShStr << std::endl;
+// 	// 	return 1;
+// 	// }
+// 	// if (newRefreshRateFPS == std::string::npos) {
+// 	// 	std::cerr << "Error: Invalid refresh rate value." << std::endl;
+// 	// 	return 1;
+// 	// }
+// 	if (newRefreshRateFPS >= 100 && newRefreshRateFPS <= 5000) {
+// 		refreshRateFPSMs = newRefreshRateFPS;
+// 	}
+// 	else {
+// 		std::cerr << "Error: FPS refresh rate must be between 100ms and 5000ms."
+// 			<< "Received: " << newRefreshRateFPS << "ms. "
+// 			<< "Using default value of 1000ms." << std::endl;
+// 		refreshRateFPSMs = 1000;
+// 	}
+// 	defaultMode = false;
+// 	enableGui = true;
+// 	return false;
+// }
+
 int main(int argc, char* argv[]) {
 	// return OpenWin();
 	// SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
@@ -50,113 +95,35 @@ int main(int argc, char* argv[]) {
 			else if (arg == "--show-fan-ramp" || arg == "-f") { showRamp = true; defaultMode = false; }
 			else if (arg == "--set-fan-ramp" || arg == "-p") { setRamp = true; defaultMode = false; }
 			else if (arg == "--set-default-ramp" || arg == "-d") { setDefaultRamp = true; defaultMode = false; }
-			else if (arg == "--show-v-offset" || arg == "-e") { showVoltageOffset = true; defaultMode = false; }
+			else if (arg == "--show-v-offset" || arg == "-e") {
+				if (! setVoltageOffset) {
+					showVoltageOffset = true;
+					defaultMode = false;
+				}
+			}
 			else if (arg == "--set-v-offset" || arg == "-v" ||
 				arg.substr(0, 15) == "--set-v-offset=" ||
-				arg.substr(0, 3) == "-v=" && ! showVoltageOffset) {
-				// Extract the voltage value from the argument
-				size_t equalsPos = arg.find('=');
-
-				// Extract voltage value after the '=' sign
-				std::string voltageStr;
-				if (equalsPos != std::string::npos) {
-					voltageStr = arg.substr(equalsPos + 1);
+				arg.substr(0, 3) == "-v=") {
+				if (! showVoltageOffset) {
+					if (! validateVoltageOffset(voltageOffset, arg)) {
+						return 1;
+					}
+					setVoltageOffset = true;
+					defaultMode = false;
 				}
-				else {
-					// No value provided, use default of 0 (or handle as needed)
-					voltageStr = "0";
-				}
-
-				// Parse and validate the voltage value
-				char* endptr = nullptr;
-				voltageOffset = static_cast<adlx_int>(strtol(voltageStr.c_str(), &endptr, 10));
-
-				// VALIDATE: Ensure voltage is negative (fan power saving)
-				if (voltageOffset >= 0) {
-					std::cerr << "Error: Voltage offset must be a negative number (fan power saving). "
-						<< "Received: " << voltageOffset << " mV. "
-						<< "Using default value of 0 mV." << std::endl;
-					voltageOffset = 0;
-				} else if (endptr == voltageStr.c_str()) {
-					// VALIDATE: Ensure parsing was successful
-					std::cerr << "Error: Invalid voltage offset value: " << arg << std::endl;
-					voltageOffset = 0;
-				}
-				// If no equals sign and no value provided, keep default (0)
-
-				setVoltageOffset = true;
-				defaultMode = false;
 			}
 			else if (arg == "--show-total-ram" || arg == "-g") { showTotalRam = true; defaultMode = false; }
 			else if (arg == "--enable-gui" || arg == "-G") { enableGui = true; defaultMode = false; }
 			else if (arg == "--refresh-rate" || arg == "-a=" || arg.substr(0, 3) == "-a=" || arg.substr(0, 15) == "--refresh-rate=") {
-				// Handle refresh rate parameter
-				size_t equalsPos = arg.find('=');
-				std::string refreshStr;
-				if (equalsPos != std::string::npos) {
-					refreshStr = arg.substr(equalsPos + 1);
-				} else {
-					refreshStr = "1000";
-				}
-
-				// char* endptr = nullptr;
-				long newRefreshRate;
-				// int newRefreshRate = static_cast<int>(strtol(refreshStr.c_str(), &endptr, 10));
-				auto result = std::from_chars(refreshStr.data(), refreshStr.data() + refreshStr.size(), newRefreshRate, 10);
-				if (result.ec != std::errc{}) {
-					std::cerr << "Error: Invalid refresh rate value: " << refreshStr << std::endl;
+				if (! validateRefreshRate(refreshRateMs, arg)) {
 					return 1;
-				}
-
-				// VALIDATE: Refresh rate must be between 100ms and 5000ms
-				if (newRefreshRate >= 100 && newRefreshRate <= 5000) {
-					refreshRateMs = newRefreshRate;
-				} else {
-					std::cerr << "Error: Refresh rate must be between 100ms and 5000ms. "
-						<< "Received: " << newRefreshRate << "ms. "
-						<< "Using default value of 1000ms." << std::endl;
-					refreshRateMs = 1000;
 				}
 				defaultMode = false;
 				enableGui = true;
 			}
 			else if (arg == "--refresh-rate-fps" || arg == "-A=" || arg.substr(0, 3) == "-A=" || arg.substr(0, 19) == "--refresh-rate-fps=") {
-				// Handle refresh rate parameter
-				size_t equalsPos = arg.find('=');
-				std::string refreshRateFPSStr;
-				if (equalsPos != std::string::npos) {
-					refreshRateFPSStr = arg.substr(equalsPos + 1);
-				} else {
-					refreshRateFPSStr = "1000";
-				}
-
-				// char* endptr = nullptr;
-
-				// VALIDATE: Refresh rate must be between 100ms and 5000ms
-				// int newRefreshRateFPS = static_cast<int>(strtol(refresRateFPShStr.c_str(), &endptr, 10));
-				long newRefreshRateFPS;
-				auto result = std::from_chars(refreshRateFPSStr.data(), refreshRateFPSStr.data() + refreshRateFPSStr.size(), newRefreshRateFPS, 10);
-				if (result.ec != std::errc{}) {
-					std::cerr << "Error: Invalid refresh rate value: " << refreshRateFPSStr << std::endl;
+				if (! validateRefreshRate(refreshRateFPSMs, arg)) {
 					return 1;
-				}
-
-				// if (endptr == refresRateFPShStr.c_str()) {
-				// 	std::cerr << "Error: Invalid refresh rate value: " << refresRateFPShStr << std::endl;
-				// 	return 1;
-				// }
-				// if (newRefreshRateFPS == std::string::npos) {
-				// 	std::cerr << "Error: Invalid refresh rate value." << std::endl;
-				// 	return 1;
-				// }
-				if (newRefreshRateFPS >= 100 && newRefreshRateFPS <= 5000) {
-					refreshRateFPSMs = newRefreshRateFPS;
-				}
-				else {
-					std::cerr << "Error: FPS refresh rate must be between 100ms and 5000ms."
-						<< "Received: " << newRefreshRateFPS << "ms. "
-						<< "Using default value of 1000ms." << std::endl;
-					refreshRateFPSMs = 1000;
 				}
 				defaultMode = false;
 				enableGui = true;
@@ -211,7 +178,7 @@ int main(int argc, char* argv[]) {
 			if (showRamp) manager.ShowGetAndSetFan(false, false);
 			else if (setRamp || setDefaultRamp) manager.ShowGetAndSetFan(true, setDefaultRamp);
 			if (showVoltageOffset) std::cout << "Current GPU clock voltage offset: " << manager.GetVoltageOffset() << " mV" << std::endl;
-			else if (setVoltageOffset) manager.SetVoltageOffsetFromCLI(voltageOffset);  // Apply if not already done in defaultMode
+			else if (setVoltageOffset) manager.SetVoltageOffset(voltageOffset);  // Apply if not already done in defaultMode
 		}
 		if (enableGui) {
 			QApplication app(argc, argv);
@@ -232,4 +199,63 @@ int main(int argc, char* argv[]) {
 	}
 
 	return 0;
+}
+
+bool validateRefreshRate(int& refreshRateMs, std::string arg) {
+	size_t equalsPos = arg.find('=');
+	std::string refreshStr;
+	if (equalsPos != std::string::npos) {
+		refreshStr = arg.substr(equalsPos + 1);
+	} else {
+		refreshStr = "1000";
+	}
+
+	long newRefreshRate;
+	auto result = std::from_chars(refreshStr.data(), refreshStr.data() + refreshStr.size(), newRefreshRate, 10);
+	if (result.ec != std::errc{}) {
+		std::cerr << "Error: Invalid refresh rate value: " << refreshStr << std::endl;
+		return false;
+	}
+
+	// VALIDATE: Refresh rate must be between 100ms and 5000ms
+	if (newRefreshRate >= 100 && newRefreshRate <= 5000) {
+		refreshRateMs = newRefreshRate;
+	} else {
+		std::cerr << "Error: Refresh rate must be between 100ms and 5000ms. "
+			<< "Received: " << newRefreshRate << "ms. "
+			<< "Using default value of 1000ms." << std::endl;
+		refreshRateMs = 1000;
+	}
+
+	return true;
+}
+
+bool validateVoltageOffset(adlx_int& voltageOffset, std::string arg) {
+	// Extract the voltage value from the argument
+	size_t equalsPos = arg.find('=');
+
+	// Extract voltage value after the '=' sign
+	std::string voltageStr;
+	if (equalsPos != std::string::npos) {
+		voltageStr = arg.substr(equalsPos + 1);
+	}
+	else {
+		// No value provided, use default of 0 (or handle as needed)
+		voltageStr = "0";
+	}
+
+	// Parse and validate the voltage value
+	auto result = std::from_chars(voltageStr.data(), voltageStr.data() + voltageStr.size(), voltageOffset, 10);
+	if (result.ec != std::errc{}) {
+		std::cerr << "Error: Invalid voltage offest value: " << voltageStr << std::endl;
+		return false;
+	}
+	// VALIDATE: Ensure voltage is negative (fan power saving)
+	if (voltageOffset > 0) {
+		std::cerr << "Error: Voltage offset must be a negative number (fan power saving). "
+			<< "Received: " << voltageOffset << " mV. "
+			<< "Using default value of 0 mV." << std::endl;
+		voltageOffset = 0;
+	}
+	return true;
 }
