@@ -2,12 +2,14 @@
 
 #include "AmdFanSensors.h"
 #include "Gui.h"
+#include <QApplication>
 #include <iostream>
 #include <string>
 
-int main(const int argc, char* argv[]) {
+int main(int argc, char* argv[]) {
 	// return OpenWin();
 	try {
+		QApplication app(argc, argv);
 		GpuManager manager;
 
 		bool showVram = false;
@@ -109,22 +111,30 @@ int main(const int argc, char* argv[]) {
 			else if (arg == "--refresh-rate-fps" || arg == "-A=" || arg.substr(0, 3) == "-A=" || arg.substr(0, 19) == "--refresh-rate-fps=") {
 				// Handle refresh rate parameter
 				size_t equalsPos = arg.find('=');
-				std::string refreshStr;
+				std::string refresRateFPShStr;
 				if (equalsPos != std::string::npos) {
-					refreshStr = arg.substr(equalsPos + 1);
+					refresRateFPShStr = arg.substr(equalsPos + 1);
 				} else {
-					refreshStr = "1000";
+					refresRateFPShStr = "1000";
 				}
 
 				char* endptr = nullptr;
-				int newRefreshRate = static_cast<int>(strtol(refreshStr.c_str(), &endptr, 10));
 
 				// VALIDATE: Refresh rate must be between 100ms and 5000ms
-				if (newRefreshRate >= 100 && newRefreshRate <= 5000) {
-					refreshRateFPSMs = newRefreshRate;
-				} else {
-					std::cerr << "Error: FPS refresh rate must be between 100ms and 5000ms. "
-						<< "Received: " << newRefreshRate << "ms. "
+				int newRefreshRateFPS = static_cast<int>(strtol(refresRateFPShStr.c_str(), &endptr, 10));
+
+				if (endptr == refresRateFPShStr.c_str()) {
+					std::cerr << "Error: Invalid refresh rate value: " << refresRateFPShStr << std::endl;
+					return 1;
+				} else if (newRefreshRateFPS >= 100 && newRefreshRateFPS <= 5000) {
+					refreshRateFPSMs = newRefreshRateFPS;
+				} else if (newRefreshRateFPS == std::string::npos) {
+					std::cerr << "Error: Invalid refresh rate value." << std::endl;
+					return 1;
+				}
+				else {
+					std::cerr << "Error: FPS refresh rate must be between 100ms and 5000ms."
+						<< "Received: " << newRefreshRateFPS << "ms. "
 						<< "Using default value of 1000ms." << std::endl;
 					refreshRateFPSMs = 1000;
 				}
@@ -183,9 +193,9 @@ int main(const int argc, char* argv[]) {
 			else if (setVoltageOffset) manager.SetVoltageOffsetFromCLI(voltageOffset);  // Apply if not already done in defaultMode
 		}
 		if (enableGui) {
-			GuiWindow guiWindow;
-			int res = guiWindow.OpenWin(manager, refreshRateMs, refreshRateFPSMs, fpsOnly);
-			return res;
+			GuiWindow guiWindow(manager);
+			guiWindow.OpenWin(manager, refreshRateMs, refreshRateFPSMs, fpsOnly);
+			return app.exec();
 		}
 
 	}

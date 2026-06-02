@@ -1,7 +1,6 @@
 #ifndef AMDFANSENSORS_AMDFANSENSORS_H
 #define AMDFANSENSORS_AMDFANSENSORS_H
 #pragma once
-#define UNICODE
 #include "GpuManager.h"
 
 #endif //AMDFANSENSORS_AMDFANSENSORS_H

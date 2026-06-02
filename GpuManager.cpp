@@ -439,13 +439,13 @@ void GpuManager::UpdateGpuTempStruct(bool fpsOnly) {
                 res = oneFPS->FPS(&fpsData);
                 if (res == ADLX_NOT_SUPPORTED) {
                     // std::cout << "ADLX_NOT_SUPPORTED" << std::endl;
-                    if (m_temperatureInfo.minFPS != 0) {
-                        m_temperatureInfo.instantFPS = 0;
-                        m_temperatureInfo.minFPS = 0;
-                        m_temperatureInfo.maxFPS = 0;
-                        m_temperatureInfo.totalFPS = 0;
-                        m_temperatureInfo.fpsHistory.reset();
-                    }
+                    // if (m_temperatureInfo.minFPS != 0) {
+                    //     m_temperatureInfo.instantFPS = 0;
+                    //     m_temperatureInfo.minFPS = 0;
+                    //     m_temperatureInfo.maxFPS = 0;
+                    m_temperatureInfo.totalFPS = 0;
+                    m_temperatureInfo.fpsHistory.reset();
+                    // }
                 }
                 else if (ADLX_SUCCEEDED(res)) {
                     if (fpsData < 9999) {

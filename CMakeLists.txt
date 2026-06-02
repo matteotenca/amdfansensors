@@ -5,29 +5,40 @@ project(AmdFanSensors VERSION 1.0
 		DESCRIPTION "AmdFanSensors is a tool to monitor AMD GPU fan speeds and temperatures using the ADLX SDK."
 		LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 14)
-#set(CMAKE_PREFIX_PATH "${CMAKE_PREFIX_PATH};${CMAKE_SOURCE_DIR}")
-find_package(imgui CONFIG REQUIRED)
-#set(CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES};g:\\adlx\\sdk\\include")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ig:\\adlx\\sdk\\include")
-include_directories("g:\\adlx\\sdk\\include")
+# --- Qt 6 Configuration ---
+# Enable automatic processing of Qt macros (Q_OBJECT, signals, slots)
+set(CMAKE_AUTOMOC ON)
+# Enable automatic processing of .ui files (if you use them)
+set(CMAKE_AUTOUIC ON)
+# Enable automatic processing of resources (.qrc)
+set(CMAKE_AUTORCC ON)
+
+set(CMAKE_CXX_STANDARD 17)
 add_executable(AmdFanSensors
 		WinApis.cpp
 		ADLXHelper.cpp
 		ADLXHelper.h
-        AmdFanSensors.cpp
-        AmdFanSensors.h
+		AmdFanSensors.cpp
+		AmdFanSensors.h
 		GpuManager.cpp
 		GpuManager.h
 		Gui.cpp
 		Gui.h
 )
-#add_executable(PerfAllMetrics
-#		mainPerfAllMetrics.cpp
-#		ADLXHelper.cpp
-#		ADLXHelper.h
-#		WinApis.cpp
-#)
 
-target_link_libraries(AmdFanSensors PRIVATE imgui::imgui)
-target_link_libraries(AmdFanSensors PRIVATE d3d11)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:__cplusplus /permissive-")
+
+# Add the Qt installation path to prefix path so find_package works
+list(APPEND CMAKE_PREFIX_PATH "D:/Qt67/6.7.2/msvc2019_64")
+
+include_directories("g:\\adlx\\sdk\\include")
+
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets EntryPointPrivate)
+#find_package(imgui CONFIG REQUIRED)
+
+target_link_libraries(AmdFanSensors PRIVATE 
+    Qt6::Widgets 
+    Qt6::Gui 
+    Qt6::Core 
+    Qt6::EntryPointPrivate
+)

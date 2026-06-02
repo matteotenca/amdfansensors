@@ -1,283 +1,180 @@
-// Gui.cpp full content - OPTIMIZED FOR REDUNDANT DRAWING
 #include "Gui.h"
+#include <QApplication>
+#include <QString>
+#include <QFont>
 
-#include <chrono>
-#include "imgui.h"
-#include "imgui_impl_win32.h"
-#include "imgui_impl_dx11.h"
-#include <imgui_internal.h>
-#include <d3d11.h>
-#include <iostream>
-#include <thread>
-#include <wrl/client.h>
+GuiWindow::GuiWindow(GpuManager& manager, QWidget* parent)
+    : QMainWindow(parent), m_manager(manager) {
+    m_metricsTimer = new QTimer(this);
+    m_fpsTimer = new QTimer(this);
 
-using namespace Microsoft::WRL;
+    connect(m_metricsTimer, &QTimer::timeout, this, &GuiWindow::updateHardwareMetrics);
+    connect(m_fpsTimer, &QTimer::timeout, this, &GuiWindow::updateFpsMetrics);
 
-// Window procedure remains external as it uses Windows API directly
-LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
-    if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
-        return true;
-
-    switch (message) {
-    case WM_DESTROY:
-        PostQuitMessage(0);
-        return 0;
-    case WM_SIZE:
-        // The GuiWindow::RunLoop will handle resizing logic using its internal state.
-        return 0;
-    default:
-        return DefWindowProc(hWnd, message, wParam, lParam);
-    }
+    setupUi();
+    applyStylesheet();
 }
 
-// Implementation of CreateDeviceD3D (No changes needed)
-bool GuiWindow::CreateDeviceD3D() {
-    DXGI_SWAP_CHAIN_DESC sd;
-    ZeroMemory(&sd, sizeof(sd));
-    sd.BufferCount = 2;
-    sd.BufferDesc.Width = 0; // Will be set later when window size is known
-    sd.BufferDesc.Height = 0;
-    sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    sd.BufferDesc.RefreshRate.Numerator = 60;
-    sd.BufferDesc.RefreshRate.Denominator = 1;
-    sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-    sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    sd.OutputWindow = m_hWnd;
-    sd.SampleDesc.Count = 1;
-    sd.SampleDesc.Quality = 0;
-    sd.Windowed = TRUE;
-    sd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+GuiWindow::~GuiWindow() = default;
 
-    UINT createDeviceFlags = 0;
-    D3D_FEATURE_LEVEL featureLevel;
-    constexpr D3D_FEATURE_LEVEL featureLevelArray[2] = {D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_0,};
+void GuiWindow::setupUi() {
+    m_centralWidget = new QWidget(this);
+    m_mainLayout = new QVBoxLayout(m_centralWidget);
+    m_mainLayout->setSpacing(15);
+    m_mainLayout->setContentsMargins(15, 15, 15, 15);
 
-    // ComPtrs are automatically initialized via the address of the pointer inside the ComPtr
-    if (D3D11CreateDeviceAndSwapChain(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags,
-                                      featureLevelArray, 2, D3D11_SDK_VERSION, &sd,
-                                      m_pSwapChain.GetAddressOf(),
-                                      m_pd3dDevice.GetAddressOf(), &featureLevel,
-                                      m_pd3dDeviceContext.GetAddressOf()) != S_OK) {
-        std::cerr << "Failed to create DirectX device and swap chain." << std::endl;
-        return false;
+    // Font monospace per i numeri (evita lo sfarfallio del layout)
+    QFont monoFont("Consolas", 10);
+    if (monoFont.styleHint() == QFont::SansSerif) {
+        monoFont.setFamily("Courier New"); // Fallback per Linux/Mac
     }
 
-    if (!CreateRenderTarget()) {
-        std::cerr << "Failed to create render target after device initialization." << std::endl;
-        CleanupDeviceD3D(); // Clean up device resources on failure
-        return false;
+    // ==================== GRUPPO HARDWARE ====================
+    m_hardwareGroup = new QGroupBox("GPU Metrics", this);
+    QGridLayout* hwLayout = new QGridLayout(m_hardwareGroup);
+    hwLayout->setSpacing(10);
+
+    m_gpuTempLabel = new QLabel("GPU: --°C", this);
+    m_hotspotTempLabel = new QLabel("Hotspot: --°C", this);
+    m_memTempLabel = new QLabel("Memory: --°C", this);
+    m_statusLabel = new QLabel("VRAM Used: -- MB", this);
+    m_fanLabel = new QLabel("Fan: -- RPM (0%)", this);
+    m_mempryLabel = new QLabel("Memory Usage: -- MB", this);
+
+
+    m_fanBar = new QProgressBar(this);
+    m_fanBar->setRange(0, 100);
+    m_fanBar->setValue(0);
+    m_fanBar->setTextVisible(false);
+    m_fanBar->setFixedHeight(8);
+
+    m_memoryBar = new QProgressBar(this);
+    m_memoryBar->setRange(0, m_manager.m_statusInfo.totalGPUMemoryMB);
+    m_memoryBar->setValue(0);
+    m_memoryBar->setTextVisible(false);
+    m_memoryBar->setFixedHeight(8);
+
+    // Applichiamo il font monospace dove serve stabilità numerica
+    m_gpuTempLabel->setFont(monoFont);
+    m_hotspotTempLabel->setFont(monoFont);
+    m_memTempLabel->setFont(monoFont);
+    m_statusLabel->setFont(monoFont);
+    m_fanLabel->setFont(monoFont);
+    m_mempryLabel->setFont(monoFont);
+
+    // Posizionamento nella griglia (Riga, Colonna)
+    hwLayout->addWidget(m_gpuTempLabel, 0, 0);
+    hwLayout->addWidget(m_hotspotTempLabel, 0, 1);
+    hwLayout->addWidget(m_memTempLabel, 1, 0);
+    hwLayout->addWidget(m_statusLabel, 1, 1);
+    hwLayout->addWidget(m_fanLabel, 2, 0, 1, 2); // Occupa 2 colonne
+    hwLayout->addWidget(m_fanBar, 3, 0, 1, 2);
+    hwLayout->addWidget(m_mempryLabel, 4, 0, 1, 2); // Occupa 2 colonne
+    hwLayout->addWidget(m_memoryBar, 5, 0, 1, 2);
+
+    m_mainLayout->addWidget(m_hardwareGroup);
+
+    // ==================== GRUPPO FPS ====================
+    m_fpsGroup = new QGroupBox("Performance", this);
+    QGridLayout* fpsLayout = new QGridLayout(m_fpsGroup);
+
+    m_instantFpsLabel = new QLabel("Current FPS: --", this);
+    m_avgFpsLabel = new QLabel("Average: --", this);
+    m_minMaxFpsLabel = new QLabel("Min: -- | Max: --", this);
+
+    // Font più grande per gli FPS correnti
+    QFont fpsFont = monoFont;
+    fpsFont.setPointSize(12);
+    fpsFont.setBold(true);
+    m_instantFpsLabel->setFont(fpsFont);
+    m_avgFpsLabel->setFont(monoFont);
+    m_minMaxFpsLabel->setFont(monoFont);
+
+    fpsLayout->addWidget(m_instantFpsLabel, 0, 0, 1, 2);
+    fpsLayout->addWidget(m_avgFpsLabel, 1, 0);
+    fpsLayout->addWidget(m_minMaxFpsLabel, 1, 1);
+
+    m_mainLayout->addWidget(m_fpsGroup);
+
+    // Finalizza Finestra
+    setCentralWidget(m_centralWidget);
+    setWindowTitle("AMD GPU Monitor (Qt 6.7)");
+    resize(550, 650);
+}
+
+void GuiWindow::updateHardwareMetrics() {
+    if (m_fpsOnlyMode) return;
+
+    m_manager.UpdateGpuTempStruct(false);
+    auto info = m_manager.m_temperatureInfo;
+
+    m_gpuTempLabel->setText(QString("GPU: %1°C").arg(info.gpuTemperatureC, 5, 'f', 1));
+    m_hotspotTempLabel->setText(QString("Hotspot: %1°C").arg(info.gpuHotspotTemperatureC, 5, 'f', 1));
+    m_memTempLabel->setText(QString("Memory: %1°C").arg(info.gpuMemoryTemperatureC, 5, 'f', 1));
+    m_statusLabel->setText(QString("VRAM Used: %1 MB/%2 MB").arg(info.vRam).arg(m_manager.m_statusInfo.totalGPUMemoryMB));
+
+    m_fanLabel->setText(QString("Fan Speed: %1 RPM (%2%)").arg(info.fanSpeed).arg(info.fanPercent));
+    m_fanBar->setValue(static_cast<int>(info.fanPercent));
+    m_mempryLabel->setText(QString("Memory Usage: %1 MB/%2 MB - Free %3 MB").arg(info.vRam).arg(m_manager.m_statusInfo.totalGPUMemoryMB).arg(m_manager.m_statusInfo.totalGPUMemoryMB - info.vRam));
+    m_memoryBar->setValue(info.vRam);
+}
+
+void GuiWindow::updateFpsMetrics() {
+    m_manager.UpdateGpuTempStruct(true);
+    auto info = m_manager.m_temperatureInfo;
+
+    m_instantFpsLabel->setText(QString("Current FPS: %1").arg(info.instantFPS, 4, 'f', 1));
+    m_avgFpsLabel->setText(QString("Average: %1").arg(info.avgFPS, 4, 'f', 1));
+    m_minMaxFpsLabel->setText(QString("Min: %1 | Max: %2").arg(info.minFPS).arg(info.maxFPS));
+}
+
+int GuiWindow::OpenWin(GpuManager& manager, int refreshRateMs, int refreshRateFPS, bool fpsOnly) {
+    m_fpsOnlyMode = fpsOnly;
+
+    if (m_fpsOnlyMode) {
+        m_hardwareGroup->hide();
     }
-    return true;
+
+    m_metricsTimer->start(refreshRateMs);
+    m_fpsTimer->start(refreshRateFPS);
+
+    this->show();
+    return 0;
 }
 
-// Implementation of CreateRenderTarget (No changes needed)
-bool GuiWindow::CreateRenderTarget() {
-    ComPtr<ID3D11Texture2D> pBackBuffer; // Local ComPtr handles automatic release
-    HRESULT hr = m_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
-
-    if (FAILED(hr)) {
-        std::cerr << "Failed to create render target view from swap chain buffer. Error code: 0x"
-            << std::hex << hr << std::dec << std::endl;
-        pBackBuffer = nullptr; // Ensure no dangling pointer
-        return false;
-    }
-
-    hr = m_pd3dDevice->CreateRenderTargetView(pBackBuffer.Get(), nullptr, m_mainRenderTargetView.GetAddressOf());
-    return SUCCEEDED(hr);
-}
-
-void GuiWindow::CleanupRenderTarget() {
-    m_mainRenderTargetView.Reset(); // Safe reset
-}
-
-// Implementation of CleanupDeviceD3D (No changes needed)
-void GuiWindow::CleanupDeviceD3D() {
-    CleanupRenderTarget();
-    m_pSwapChain.Reset();
-    m_pd3dDeviceContext.Reset();
-    m_pd3dDevice.Reset();
-}
-
-// Destructor ensures proper cleanup when the object goes out of scope. (No changes needed)
-GuiWindow::~GuiWindow() {
-    CleanupDeviceD3D();
-}
-
-bool GuiWindow::Initialize(int refreshRate, int refreshRateFPS) {
-    if (!CreateDeviceD3D()) {
-        std::cerr << "Failed to create DirectX device." << std::endl;
-        return false;
-    }
-
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-
-    ImGui::StyleColorsDark();
-
-    ImGui_ImplWin32_Init(m_hWnd);
-    // Pass the raw pointer from ComPtr to ImGui
-    ImGui_ImplDX11_Init(m_pd3dDevice.Get(), m_pd3dDeviceContext.Get());
-
-    refreshRateMs = refreshRate;
-    refreshRateFPSMs = refreshRateFPS;
-    return true;
-}
-
-// Main window application entry point. Optimized to reduce CPU usage.
-int GuiWindow::OpenWin(GpuManager& manager, const int refreshRate, const int refreshRateFPS, const bool fpsOnly) {
-    int error = 0;
-    // Setup Window Class (No changes needed)
-    //WNDCLASSEX wc;
-    WNDCLASSEXW wc;
-    wc = {
-        sizeof(WNDCLASSEXW), CS_CLASSDC, WindowProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr,
-        nullptr,
-        L"ImGuiWindow", nullptr
-    };
-    RegisterClassExW(&wc);
-	//LPCWSTR title = L"GPU Temperature Monitor";
-    m_hWnd = CreateWindowW(wc.lpszClassName, L"GPU Temperature Monitor",
-                          WS_OVERLAPPEDWINDOW, 100, 100, 640, 480, nullptr, nullptr, wc.hInstance, nullptr);
-
-    std::cout << "Initializing GUI resources..." << std::endl;
-    if (!Initialize(refreshRate, refreshRateFPS)) {
-        UnregisterClass(wc.lpszClassName, wc.hInstance);
-        return 1;
-    }
-
-    ShowWindow(m_hWnd, SW_SHOWDEFAULT);
-    UpdateWindow(m_hWnd);
-
-
-    // --- Main loop execution (Optimized) ---
-    MSG msg;
-    ZeroMemory(&msg, sizeof(msg));
-
-    std::cout << "Finestra aperta. Premere ESC per uscire." << std::endl;
-    constexpr float clear_color_with_alpha[4] = {0.45f, 0.55f, 0.60f, 1.00f};
-
-    std::chrono::high_resolution_clock::time_point lastFpsUpdateTime = std::chrono::high_resolution_clock::now();
-    std::chrono::high_resolution_clock::time_point lastTempUpdateTime = std::chrono::high_resolution_clock::now();
-
-    std::chrono::milliseconds fpsInterval(refreshRateFPSMs);
-    std::chrono::milliseconds tempInterval(refreshRateMs);
-
-    // State tracking for optimization: Store the last successfully displayed values
-    GpuManager::GpuTemperatureInfo lastDisplayedTempInfo = manager.m_temperatureInfo;
-    GpuManager::GpuStatusInfo lastDisplayedStatusInfo = manager.GetStatusInfo();
-
-    int updatesTemp = 0;
-    int updatesFPS = 0;
-
-    while (msg.message != WM_QUIT) {
-        bool needsRedraw = false;
-
-        if (PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE)) {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
-            needsRedraw = true; // Redraw on any window event
-            continue;
+void GuiWindow::applyStylesheet() {
+    // Look & Feel scuro (stile gaming/monitoring)
+    QString darkStyle = R"(
+        QMainWindow {
+            background-color: #121212;
         }
-
-        // --- CPU Optimization: Throttling ---
-        if (IsIconic(m_hWnd) || !IsWindowVisible(m_hWnd)) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            continue;
+        QGroupBox {
+            font-weight: bold;
+            color: #E0E0E0;
+            border: 1px solid #2C2C2C;
+            border-radius: 6px;
+            margin-top: 12px;
+            padding-top: 10px;
         }
-
-        auto now = std::chrono::high_resolution_clock::now();
-
-        // High Frequency Poll: FPS
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastFpsUpdateTime) >= fpsInterval) {
-            manager.UpdateGpuTempStruct(true);
-            lastFpsUpdateTime = now;
-            lastDisplayedTempInfo = manager.m_temperatureInfo;
-            updatesFPS += 1;
-            needsRedraw = true;
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top left;
+            left: 10px;
+            padding: 0 3px;
         }
-
-        // Low Frequency Poll: Temperatures and VRAM
-        if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastTempUpdateTime) >= tempInterval) {
-            manager.UpdateGpuTempStruct(false);
-            lastTempUpdateTime = now;
-            lastDisplayedTempInfo = manager.m_temperatureInfo;
-            lastDisplayedStatusInfo = manager.GetStatusInfo();
-            updatesTemp += 1;
-            needsRedraw = true;
+        QLabel {
+            color: #B0B0B0;
         }
-
-        if (needsRedraw) {
-            ImGui_ImplDX11_NewFrame();
-            ImGui_ImplWin32_NewFrame();
-            ImGui::NewFrame();
-
-            ImGui::Begin("GPU Monitor");
-
-            ImGui::Text("Monitor Temperatura GPU");
-            ImGui::Separator();
-
-            ImGui::Text("Refresh Rate Temp: %d ms", refreshRateMs);
-            ImGui::Text("Refresh Rate FPS: %d ms", refreshRateFPSMs);
-            ImGui::Text("FPS Samples: %zu/1000", manager.m_temperatureInfo.fpsHistory.size());
-            ImGui::Text("Times FPS where refreshed: %d", updatesFPS);
-            ImGui::Text("Times temps where refreshed: %d", updatesTemp);
-
-            if (!fpsOnly) {
-                ImGui::Text("Temperatura GPU: %0.1f °C", lastDisplayedTempInfo.gpuTemperatureC);
-                ImGui::Text("Temperatura GPU Memory: %0.1f °C", lastDisplayedTempInfo.gpuMemoryTemperatureC);
-                ImGui::Text("Temperatura GPU Hotspot: %0.1f °C", lastDisplayedTempInfo.gpuHotspotTemperatureC);
-                ImGui::Text("Utilizzo GPU: %.0f%%", lastDisplayedTempInfo.gpuUsage);
-                ImGui::Text("Velocità Ventola GPU: %d RPM", lastDisplayedTempInfo.fanSpeed);
-                ImGui::Text("Velocità Ventola GPU %%: %d%%", lastDisplayedTempInfo.fanPercent);
-                ImGui::Text("VRAM GPU occupata: %d MB", lastDisplayedTempInfo.vRam);
-                ImGui::Text("VRAM GPU libera: %d MB",
-                            lastDisplayedStatusInfo.totalGPUMemoryMB - lastDisplayedTempInfo.vRam);
-            }
-            ImGui::Text("Instant FPS: %d", lastDisplayedTempInfo.instantFPS);
-            ImGui::Text("Average FPS: %d", lastDisplayedTempInfo.avgFPS);
-            ImGui::Text("Minimum FPS: %d", lastDisplayedTempInfo.minFPS);
-            ImGui::Text("Maximum FPS: %d", lastDisplayedTempInfo.maxFPS);
-
-            ImGui::End();
-
-            ImGui::Render();
-            // Use .Get() for ComPtrs
-            m_pd3dDeviceContext->OMSetRenderTargets(1, m_mainRenderTargetView.GetAddressOf(), nullptr);
-            m_pd3dDeviceContext->ClearRenderTargetView(m_mainRenderTargetView.Get(), clear_color_with_alpha);
-            ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-
-            HRESULT hr = m_pSwapChain->Present(1, 0);
-            if (FAILED(hr)) {
-                std::cout << "DXGI Error! Error code: 0x" << std::hex << hr << std::dec << std::endl;
-                error = 1;
-                break;
-            }
+        QProgressBar {
+            border: 1px solid #2C2C2C;
+            border-radius: 3px;
+            background-color: #1A1A1A;
         }
-        else {
-            // No data changed and no messages: sleep briefly to avoid 100% core usage
-            // This is the key to reducing CPU from 2% to <0.1%
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        QProgressBar::chunk {
+            background-color: #00E676; /* Verde per ventole/performance, stile AMD Radeon Eco */
+            width: 1px;
         }
-    }
+    )";
 
-    // --- Cleanup (No changes needed) ---
-    std::cout << "Cleaning up GUI resources..." << std::endl;
-
-    ImGui_ImplDX11_Shutdown();
-    ImGui_ImplWin32_Shutdown();
-    ImGui::DestroyContext();
-
-    // FIX: Explicitly destroy the window handle before unregistering
-    if (m_hWnd) {
-        DestroyWindow(m_hWnd);
-        m_hWnd = nullptr;
-    }
-
-    UnregisterClass(wc.lpszClassName, wc.hInstance);
-
-    std::cout << "Applicazione chiusa." << std::endl;
-
-    return error;
+    this->setStyleSheet(darkStyle);
 }

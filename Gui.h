@@ -1,58 +1,60 @@
 #ifndef AMDFANSENSORS_WINDOW_H
 #define AMDFANSENSORS_WINDOW_H
 #pragma once
-#define UNICODE
-#include <windows.h>
-#include <d3d11.h>
-#include <wrl/client.h> // Added for ComPtr
-#include <imgui.h>
+
+#include <QMainWindow>
+#include <QTimer>
+#include <QLabel>
+#include <QVBoxLayout>
+#include <QGroupBox>
+#include <QProgressBar>
 #include "GpuManager.h"
-
-using Microsoft::WRL::ComPtr; // Shortcut for cleaner code
-
-extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
-
-// Window procedure - main message handler for the application window
-LRESULT CALLBACK WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 
 /**
  * @brief Class responsible for managing the rendering context and game loop.
- * Encapsulates DirectX resources (ID3D11Device*, etc.) and the main GUI logic.
+ * Now utilizes Qt 6.7.2 for cross-platform UI management.
  */
-class GuiWindow {
+class GuiWindow : public QMainWindow {
+    Q_OBJECT
 public:
-    // Initialize DirectX, ImGui and the main loop resources.
-    bool Initialize(int refreshRateMs, int refreshRateFPS = 1000);
+    explicit GuiWindow(GpuManager& manager, QWidget* parent = nullptr);
+    ~GuiWindow() override;
 
-    // Run the main application loop (handles messages and rendering).
-    // void RunLoop() const;
     int OpenWin(GpuManager& manager, int refreshRateMs, int refreshRateFPS = 1000, bool fpsOnly = false);
 
-    // Clean up all allocated DirectX/ImGui resources.
-    ~GuiWindow();
-    GuiWindow() = default;
-    // Prevent copying to avoid double-release of DirectX resources
-    GuiWindow(const GuiWindow&) = delete;
-    GuiWindow& operator=(const GuiWindow&) = delete;
-
-    int refreshRateMs = 1000;
-    int refreshRateFPSMs = 1000;
+private slots:
+    void updateHardwareMetrics();
+    void updateFpsMetrics();
 
 private:
-    HWND m_hWnd = nullptr;
-    // Changed raw pointers to ComPtr for automatic lifecycle management
-    ComPtr<ID3D11Device> m_pd3dDevice;
-    ComPtr<ID3D11DeviceContext> m_pd3dDeviceContext;
-    ComPtr<IDXGISwapChain> m_pSwapChain;
-    ComPtr<ID3D11RenderTargetView> m_mainRenderTargetView;
+    GpuManager& m_manager;
+    QTimer* m_metricsTimer;
+    QTimer* m_fpsTimer;
+    bool m_fpsOnlyMode = false;
 
+    // UI Structure Elements
+    QWidget* m_centralWidget;
+    QVBoxLayout* m_mainLayout;
 
-    // Internal methods for DX setup/cleanup
-    bool CreateDeviceD3D();
-    bool CreateRenderTarget();
-    void CleanupRenderTarget();
-    void CleanupDeviceD3D();
+    QGroupBox* m_hardwareGroup;
+    QGroupBox* m_fpsGroup;
+
+    // Hardware Labels & Widgets
+    QLabel* m_statusLabel; // Per la VRAM
+    QLabel* m_gpuTempLabel;
+    QLabel* m_hotspotTempLabel;
+    QLabel* m_memTempLabel;
+    QLabel* m_fanLabel;
+    QLabel* m_mempryLabel;
+    QProgressBar* m_memoryBar;
+    QProgressBar* m_fanBar;
+
+    // FPS Labels
+    QLabel* m_instantFpsLabel;
+    QLabel* m_avgFpsLabel;
+    QLabel* m_minMaxFpsLabel;
+
+    void setupUi();
+    void applyStylesheet();
 };
-
-
 #endif //AMDFANSENSORS_WINDOW_H

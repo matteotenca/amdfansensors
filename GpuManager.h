@@ -1,7 +1,6 @@
 #ifndef GPU_MANAGER_H
 #define GPU_MANAGER_H
 #pragma once
-#define UNICODE
 #include <ADLX.h>
 #include <IGPUManualFanTuning.h>
 #include <IGPUTuning.h>
@@ -159,7 +158,6 @@ public:
     // Tuning methods
     void ShowGetAndSetFan(bool setRamp, bool defaultRamp);
     void SetVoltageOffset(adlx_int voltage) const; // UPDATED: Added voltage parameter
-    //void GetGPUStates() const;
     void SetVoltageOffsetFromCLI(adlx_int voltage) const; // NEW: Added from CLI
     void ShowFanPercent() const;
     void ShowGPUUsage() const;
@@ -168,14 +166,11 @@ public:
     // Pointers are now mutable to allow lazy-loading initialization within const methods
     mutable IADLXManualGraphicsTuning2Ptr m_manualGFXTuning2 = nullptr;
     mutable IADLXGPUMetricsSupportPtr m_gpuMetricsSupport = nullptr;
-    // mutable IADLXGPUMetricsPtr m_gpuMetrics = nullptr;
     mutable IADLXSystemMetricsSupportPtr m_systemMetricsSupport = nullptr;
-    // mutable IADLXSystemMetricsPtr m_systemMetrics = nullptr;
-
     mutable IADLXGPUTuningServicesPtr m_gpuTuningService = nullptr;
     mutable IADLXManualFanTuningPtr m_manualFanTuning = nullptr;
     mutable IADLXPerformanceMonitoringServicesPtr m_perfMonitoringServices = nullptr;
-    // mutable IADLXAllMetricsPtr m_allMetrics = nullptr;
+
     IADLXGPUPtr m_oneGPU = nullptr;
     GpuStatusInfo m_statusInfo; // Status information struct
     GpuTemperatureInfo m_temperatureInfo; // Temperature information struct
@@ -192,10 +187,7 @@ private:
     adlx_int GetFanPercent() const;
     adlx_double GetGPUUsage() const;
     IADLXAllMetricsPtr GetCurrentAllMetrics() const;
-    // void GetCurrentGpuMetrics() const;
-    // void EnsureSystemMetrics() const;
 
-    // Updated signature: accepts ADLX_RESULT and optional operation_name name
     static void cleanUp(ADLX_RESULT res, const char* operation_name = nullptr);
 };
 #endif // GPU_MANAGER_H
