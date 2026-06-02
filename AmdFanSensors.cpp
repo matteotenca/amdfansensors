@@ -1,6 +1,7 @@
 // ReSharper disable CppDFANullDereference
 
 #include "AmdFanSensors.h"
+#include <charconv>
 #include "Gui.h"
 #include <QApplication>
 #include <iostream>
@@ -8,8 +9,12 @@
 
 int main(int argc, char* argv[]) {
 	// return OpenWin();
+	// SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+	// AddDllDirectory(L"D:\\Qt67\\6.7.2\\msvc2019_64\\bin");
+	// SetDllDirectory(L"D:\\Qt67\\6.7.2\\msvc2019_64\\bin");
+
 	try {
-		QApplication app(argc, argv);
+		// QApplication app(argc, argv);
 		GpuManager manager;
 
 		bool showVram = false;
@@ -94,8 +99,14 @@ int main(int argc, char* argv[]) {
 					refreshStr = "1000";
 				}
 
-				char* endptr = nullptr;
-				int newRefreshRate = static_cast<int>(strtol(refreshStr.c_str(), &endptr, 10));
+				// char* endptr = nullptr;
+				long newRefreshRate;
+				// int newRefreshRate = static_cast<int>(strtol(refreshStr.c_str(), &endptr, 10));
+				auto result = std::from_chars(refreshStr.data(), refreshStr.data() + refreshStr.size(), newRefreshRate, 10);
+				if (result.ec != std::errc{}) {
+					std::cerr << "Error: Invalid refresh rate value: " << refreshStr << std::endl;
+					return 1;
+				}
 
 				// VALIDATE: Refresh rate must be between 100ms and 5000ms
 				if (newRefreshRate >= 100 && newRefreshRate <= 5000) {
@@ -106,31 +117,40 @@ int main(int argc, char* argv[]) {
 						<< "Using default value of 1000ms." << std::endl;
 					refreshRateMs = 1000;
 				}
+				defaultMode = false;
 				enableGui = true;
 			}
 			else if (arg == "--refresh-rate-fps" || arg == "-A=" || arg.substr(0, 3) == "-A=" || arg.substr(0, 19) == "--refresh-rate-fps=") {
 				// Handle refresh rate parameter
 				size_t equalsPos = arg.find('=');
-				std::string refresRateFPShStr;
+				std::string refreshRateFPSStr;
 				if (equalsPos != std::string::npos) {
-					refresRateFPShStr = arg.substr(equalsPos + 1);
+					refreshRateFPSStr = arg.substr(equalsPos + 1);
 				} else {
-					refresRateFPShStr = "1000";
+					refreshRateFPSStr = "1000";
 				}
 
-				char* endptr = nullptr;
+				// char* endptr = nullptr;
 
 				// VALIDATE: Refresh rate must be between 100ms and 5000ms
-				int newRefreshRateFPS = static_cast<int>(strtol(refresRateFPShStr.c_str(), &endptr, 10));
+				// int newRefreshRateFPS = static_cast<int>(strtol(refresRateFPShStr.c_str(), &endptr, 10));
+				long newRefreshRateFPS;
+				auto result = std::from_chars(refreshRateFPSStr.data(), refreshRateFPSStr.data() + refreshRateFPSStr.size(), newRefreshRateFPS, 10);
+				if (result.ec != std::errc{}) {
+					std::cerr << "Error: Invalid refresh rate value: " << refreshRateFPSStr << std::endl;
+					return 1;
+				}
 
-				if (endptr == refresRateFPShStr.c_str()) {
-					std::cerr << "Error: Invalid refresh rate value: " << refresRateFPShStr << std::endl;
-					return 1;
-				} else if (newRefreshRateFPS >= 100 && newRefreshRateFPS <= 5000) {
+				// if (endptr == refresRateFPShStr.c_str()) {
+				// 	std::cerr << "Error: Invalid refresh rate value: " << refresRateFPShStr << std::endl;
+				// 	return 1;
+				// }
+				// if (newRefreshRateFPS == std::string::npos) {
+				// 	std::cerr << "Error: Invalid refresh rate value." << std::endl;
+				// 	return 1;
+				// }
+				if (newRefreshRateFPS >= 100 && newRefreshRateFPS <= 5000) {
 					refreshRateFPSMs = newRefreshRateFPS;
-				} else if (newRefreshRateFPS == std::string::npos) {
-					std::cerr << "Error: Invalid refresh rate value." << std::endl;
-					return 1;
 				}
 				else {
 					std::cerr << "Error: FPS refresh rate must be between 100ms and 5000ms."
@@ -138,6 +158,7 @@ int main(int argc, char* argv[]) {
 						<< "Using default value of 1000ms." << std::endl;
 					refreshRateFPSMs = 1000;
 				}
+				defaultMode = false;
 				enableGui = true;
 			}
 			else if (arg == "--fps-only" || arg == "-u") { fpsOnly = true; defaultMode = false; enableGui = true;}
@@ -193,9 +214,15 @@ int main(int argc, char* argv[]) {
 			else if (setVoltageOffset) manager.SetVoltageOffsetFromCLI(voltageOffset);  // Apply if not already done in defaultMode
 		}
 		if (enableGui) {
-			GuiWindow guiWindow(manager);
-			guiWindow.OpenWin(manager, refreshRateMs, refreshRateFPSMs, fpsOnly);
-			return app.exec();
+			QApplication app(argc, argv);
+			GuiWindow guiWindow(manager, refreshRateMs, refreshRateFPSMs, fpsOnly);
+			// guiWindow.OpenWin(manager, refreshRateMs, refreshRateFPSMs, fpsOnly);
+			if (guiWindow.OpenWin()) {
+				static int res;
+				res = app.exec();
+				return res;
+			}
+			return 1;
 		}
 
 	}

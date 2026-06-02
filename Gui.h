@@ -17,10 +17,11 @@
 class GuiWindow : public QMainWindow {
     Q_OBJECT
 public:
-    explicit GuiWindow(GpuManager& manager, QWidget* parent = nullptr);
+    explicit GuiWindow(GpuManager& manager,  int refreshRateMs, int refreshRateFPS, bool fpsOnly, QWidget* parent = nullptr);
     ~GuiWindow() override;
 
-    int OpenWin(GpuManager& manager, int refreshRateMs, int refreshRateFPS = 1000, bool fpsOnly = false);
+    // int OpenWin(GpuManager& manager, int refreshRateMs, int refreshRateFPS = 1000, bool fpsOnly = false);
+    bool OpenWin();
 
 private slots:
     void updateHardwareMetrics();
@@ -31,6 +32,9 @@ private:
     QTimer* m_metricsTimer;
     QTimer* m_fpsTimer;
     bool m_fpsOnlyMode = false;
+
+    int m_refreshRate;
+    int m_refreshRateFPS;
 
     // UI Structure Elements
     QWidget* m_centralWidget;

@@ -26,7 +26,7 @@ add_executable(AmdFanSensors
 		Gui.h
 )
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:__cplusplus /permissive-")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:__cplusplus /permissive- /std:c++17 ")
 
 # Add the Qt installation path to prefix path so find_package works
 list(APPEND CMAKE_PREFIX_PATH "D:/Qt67/6.7.2/msvc2019_64")

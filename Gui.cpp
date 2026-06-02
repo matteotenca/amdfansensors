@@ -1,10 +1,11 @@
 #include "Gui.h"
+#include <iostream>
 #include <QApplication>
 #include <QString>
 #include <QFont>
 
-GuiWindow::GuiWindow(GpuManager& manager, QWidget* parent)
-    : QMainWindow(parent), m_manager(manager) {
+GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS, bool fpsOnly, QWidget* parent)
+    : QMainWindow(parent), m_manager(manager), m_fpsOnlyMode(fpsOnly), m_refreshRate(refreshRateMs), m_refreshRateFPS(refreshRateFPS)  {
     m_metricsTimer = new QTimer(this);
     m_fpsTimer = new QTimer(this);
 
@@ -128,18 +129,22 @@ void GuiWindow::updateFpsMetrics() {
     m_minMaxFpsLabel->setText(QString("Min: %1 | Max: %2").arg(info.minFPS).arg(info.maxFPS));
 }
 
-int GuiWindow::OpenWin(GpuManager& manager, int refreshRateMs, int refreshRateFPS, bool fpsOnly) {
-    m_fpsOnlyMode = fpsOnly;
+bool GuiWindow::OpenWin() {
+    try {
+        if (m_fpsOnlyMode) {
+            m_hardwareGroup->hide();
+        }
 
-    if (m_fpsOnlyMode) {
-        m_hardwareGroup->hide();
+        m_metricsTimer->start(m_refreshRate);
+        m_fpsTimer->start(m_refreshRateFPS);
+
+        this->show();
     }
-
-    m_metricsTimer->start(refreshRateMs);
-    m_fpsTimer->start(refreshRateFPS);
-
-    this->show();
-    return 0;
+    catch (const std::exception& e) {
+        std::cerr << "Fatal Error: " << e.what() << std::endl;
+        return false;
+    }
+    return true;
 }
 
 void GuiWindow::applyStylesheet() {
