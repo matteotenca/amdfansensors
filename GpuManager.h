@@ -12,7 +12,7 @@
 template <typename T, size_t Capacity>
 class RingBuffer {
 public:
-    RingBuffer() : m_head(0), m_tail(0), m_count(0), m_fullCounter(0) {
+    RingBuffer() : m_head(0), m_tail(0), m_count(0), m_completedRings(0) {
     }
 
     /// Retrieves an element at the specified logical position relative to the head.
@@ -37,7 +37,7 @@ public:
         size_t current_tail = m_tail;
 
         if (m_incFullCounter) {
-            m_fullCounter++;
+            m_completedRings++;
             m_incFullCounter = false;
         }
 
@@ -92,12 +92,16 @@ public:
         m_head = 0;
         m_tail = 0;
         m_count = 0;
-        m_fullCounter = 0;
+        m_completedRings = 0;
         m_incFullCounter = false;
     }
 
-    size_t unfilteredPosition() const {
-        return m_fullCounter;
+    /// Gets the number of times the buffer has wrapped around (overflowed) since its creation.
+    /// This is useful for tracking how much data was discarded or how many full cycles were completed in a long-running stream.
+    /// @return The total count of completed rings as a size_t.
+    /// This operation is O(1).
+    size_t getCompletedRings() const {
+        return m_completedRings;
     }
 
     /// Gets the current number of elements stored in the ring buffer.
@@ -120,7 +124,7 @@ private:
     size_t m_head; // Index of oldest element
     size_t m_tail; // Index where next element will be written
     size_t m_count; // Current number of valid elements
-    size_t m_fullCounter;
+    size_t m_completedRings;
     bool m_incFullCounter = false;
 };
 
@@ -137,7 +141,7 @@ public:
         mutable adlx_int voltageOffsetMV = 0; // Current GPU voltage offset (mV)
     };
 
-    struct GpuTemperatureInfo {
+    struct GlobalStatusInfo {
         mutable adlx_double gpuTemperatureC = 0.0; // GPU temperature in Celsius
         mutable adlx_double gpuMemoryTemperatureC = 0.0; // GPU memory temperature in Celsius
         mutable adlx_double gpuHotspotTemperatureC = 0.0; // GPU hotspot temperature in Celsius
@@ -152,36 +156,44 @@ public:
         mutable adlx_int totalFPS = 0;
         mutable adlx_double gpuUsage = 0.0;
         mutable adlx_double gpuPower = 0.0;
+        mutable adlx_int usedSystemRam = 0;
         mutable adlx_int totalUnattended = 0;
         mutable int fullCounter = 0;
         // Ring buffer for FPS history - O(1) operations, no reallocations
-        RingBuffer<adlx_int, 1000> fpsHistory;
+        RingBuffer<adlx_int, 500> fpsHistory;
     };
 
     GpuManager(const GpuManager&) = delete;
     GpuManager& operator=(const GpuManager&) = delete;
 
     GpuStatusInfo GetStatusInfo() const;
+    adlx_int GetUsedSystemRam() const;
     int GetUnattended() const;
     // Monitoring methods - marked const as they don't modify state
     void ShowGPUVRAM() const;
     void ShowGPUMemoryTemperature() const;
     void UpdateGpuTempStruct(bool fpsOnly = false);
+    void UpdateGpuFpsMetrics();
+    void UpdateGpuHardwareMetrics();
     void ShowGPUVoltage() const;
     void ShowSystemRAM() const;
-    void ShowTotalSystemMemory() const;
+    void ShowTotalSystemRam() const;
 
     // ZeroRPM specific methods - split into read and toggle
     void ShowZeroRPMStatus(); // Reads status from struct
     void ToggleZeroRPM(); // Toggles ZeroRPM state
+    bool IsZeroRPMSupported();
+    bool GetZeroRPMState();
+    void SetZeroRPM(bool enable);
+    bool IsFanCurveDefaultOne(); // Added: Compares current states to default values
 
     // Tuning methods
     void ShowGetAndSetFan(bool setRamp, bool defaultRamp);
     void SetVoltageOffset(adlx_int voltage) const; // UPDATED: Added voltage parameter
-    void SetVoltageOffsetFromCLI(adlx_int voltage) const; // NEW: Added from CLI
     void ShowFanPercent() const;
     void ShowGPUUsage() const;
     adlx_int GetVoltageOffset() const; // NEW: Getter for voltage offset
+    bool GetVoltageOffsetRange(adlx_int& minVolt, adlx_int& maxVolt) const;
 
     // Pointers are now mutable to allow lazy-loading initialization within const methods
     mutable IADLXManualGraphicsTuning2Ptr m_manualGFXTuning2 = nullptr;
@@ -193,7 +205,7 @@ public:
 
     IADLXGPUPtr m_oneGPU = nullptr;
     GpuStatusInfo m_statusInfo; // Status information struct
-    GpuTemperatureInfo m_temperatureInfo; // Temperature information struct
+    GlobalStatusInfo m_temperatureInfo; // Temperature information struct
 private:
     // Lazy loading helpers
     // void EnsureAllMetrics() const;
@@ -207,6 +219,9 @@ private:
     adlx_int GetFanPercent() const;
     adlx_double GetGPUUsage() const;
     IADLXAllMetricsPtr GetCurrentAllMetrics() const;
+
+    static constexpr int m_defaultSpeeds[5] = { 30, 44, 58, 72, 100 };
+    static constexpr int m_defaultTemps[5] = { 30, 50, 56, 63, 71 };
 
     static void cleanUp(ADLX_RESULT res, const char* operation_name = nullptr);
 };

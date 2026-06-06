@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>550</width>
-    <height>650</height>
+    <height>750</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -60,7 +60,64 @@ QPushButton:hover {
 }
 QPushButton:pressed {
 	background-color: #1A1A1A;
-}</string>
+}
+QPushButton:disabled {
+	background-color: #444444;
+	color: #888888;
+	border: 1px solid #3a3a3a;
+}
+QCheckBox {
+	color: #B0B0B0;
+	font-weight: bold;
+	spacing: 6px;
+}
+QCheckBox::indicator {
+	width: 14px;
+	height: 14px;
+	border: 1px solid #444444;
+	border-radius: 3px;
+	background-color: #1A1A1A;
+}
+QCheckBox::indicator:checked {
+	background-color: #EF5350;
+	border: 1px solid #EF5350;
+}
+QCheckBox::indicator:disabled {
+	border: 1px solid #2C2C2C;
+	background-color: #121212;
+}
+QCheckBox:disabled {
+	color: #555555;
+}
+QSlider::groove:horizontal {
+	border: 1px solid #2C2C2C;
+	height: 6px;
+	background: #1A1A1A;
+	border-radius: 3px;
+}
+QSlider::handle:horizontal {
+	background: #EF5350;
+	border: 1px solid #EF5350;
+	width: 14px;
+	margin: -4px 0;
+	border-radius: 7px;
+}
+QSlider::handle:horizontal:disabled {
+	background: #555555;
+	border: 1px solid #555555;
+}
+QSpinBox {
+	background-color: #1A1A1A;
+	color: #E0E0E0;
+	border: 1px solid #2C2C2C;
+	border-radius: 4px;
+	padding: 4px;
+}
+QSpinBox:disabled {
+	color: #555555;
+	background-color: #121212;
+}
+</string>
   </property>
   <widget class="QWidget" name="m_centralWidget">
    <layout class="QVBoxLayout" name="m_mainLayout">
@@ -82,14 +139,14 @@ QPushButton:pressed {
     <item>
      <widget class="QGroupBox" name="m_hardwareGroup">
       <property name="title">
-       <string>GPU Metrics</string>
+       <string>Hardware Metrics</string>
       </property>
       <layout class="QGridLayout" name="hwLayout">
        <property name="spacing">
         <number>8</number>
        </property>
-       <item row="0" column="0">
-        <widget class="QLabel" name="m_gpuTempLabel">
+       <item row="2" column="0">
+        <widget class="QLabel" name="m_systemMemoryLabel">
          <property name="font">
           <font>
            <family>Consolas</family>
@@ -97,7 +154,20 @@ QPushButton:pressed {
           </font>
          </property>
          <property name="text">
-          <string>GPU: --°C</string>
+          <string>System: -- MB</string>
+         </property>
+        </widget>
+       </item>
+       <item row="8" column="0" colspan="2">
+        <widget class="QLabel" name="m_gpuUsageLabel">
+         <property name="font">
+          <font>
+           <family>Consolas</family>
+           <pointsize>10</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>GPU Usage: --%</string>
          </property>
         </widget>
        </item>
@@ -114,75 +184,7 @@ QPushButton:pressed {
          </property>
         </widget>
        </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="m_memTempLabel">
-         <property name="font">
-          <font>
-           <family>Consolas</family>
-           <pointsize>10</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Memory: --°C</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QLabel" name="m_statusLabel">
-         <property name="font">
-          <font>
-           <family>Consolas</family>
-           <pointsize>10</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>VRAM Used: -- MB</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="0" colspan="2">
-        <widget class="QLabel" name="m_fanLabel">
-         <property name="font">
-          <font>
-           <family>Consolas</family>
-           <pointsize>10</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Fan: -- RPM (0%)</string>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="0" colspan="2">
-        <widget class="QProgressBar" name="m_fanBar">
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>8</height>
-          </size>
-         </property>
-         <property name="value">
-          <number>0</number>
-         </property>
-         <property name="textVisible">
-          <bool>false</bool>
-         </property>
-        </widget>
-       </item>
-       <item row="4" column="0" colspan="2">
-        <widget class="QLabel" name="m_mempryLabel">
-         <property name="font">
-          <font>
-           <family>Consolas</family>
-           <pointsize>10</pointsize>
-          </font>
-         </property>
-         <property name="text">
-          <string>Memory Usage: -- MB</string>
-         </property>
-        </widget>
-       </item>
-       <item row="5" column="0" colspan="2">
+       <item row="7" column="0" colspan="2">
         <widget class="QProgressBar" name="m_memoryBar">
          <property name="maximumSize">
           <size>
@@ -199,7 +201,7 @@ QPushButton:pressed {
         </widget>
        </item>
        <item row="6" column="0" colspan="2">
-        <widget class="QLabel" name="m_gpuUsageLabel">
+        <widget class="QLabel" name="m_memoryLabel">
          <property name="font">
           <font>
            <family>Consolas</family>
@@ -207,12 +209,96 @@ QPushButton:pressed {
           </font>
          </property>
          <property name="text">
-          <string>GPU Usage: --%</string>
+          <string>GPU Mem: -- MB</string>
          </property>
         </widget>
        </item>
-       <item row="7" column="0" colspan="2">
+       <item row="9" column="0" colspan="2">
         <widget class="QProgressBar" name="gpuUsageProgressBar">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>8</height>
+          </size>
+         </property>
+         <property name="value">
+          <number>0</number>
+         </property>
+         <property name="textVisible">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QLabel" name="m_statusLabel">
+         <property name="font">
+          <font>
+           <family>Consolas</family>
+           <pointsize>10</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>VRAM Used: -- MB</string>
+         </property>
+        </widget>
+       </item>
+       <item row="4" column="0" colspan="2">
+        <widget class="QLabel" name="m_fanLabel">
+         <property name="font">
+          <font>
+           <family>Consolas</family>
+           <pointsize>10</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Fan Speed: -- RPM (0%)</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="0">
+        <widget class="QLabel" name="m_gpuTempLabel">
+         <property name="font">
+          <font>
+           <family>Consolas</family>
+           <pointsize>10</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>GPU: --°C</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="m_memTempLabel">
+         <property name="font">
+          <font>
+           <family>Consolas</family>
+           <pointsize>10</pointsize>
+          </font>
+         </property>
+         <property name="text">
+          <string>Memory: --°C</string>
+         </property>
+        </widget>
+       </item>
+       <item row="5" column="0" colspan="2">
+        <widget class="QProgressBar" name="m_fanBar">
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>8</height>
+          </size>
+         </property>
+         <property name="value">
+          <number>0</number>
+         </property>
+         <property name="textVisible">
+          <bool>false</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="0" colspan="2">
+        <widget class="QProgressBar" name="m_systemMemoryBar">
          <property name="maximumSize">
           <size>
            <width>16777215</width>
@@ -231,17 +317,103 @@ QPushButton:pressed {
      </widget>
     </item>
     <item>
+     <widget class="QGroupBox" name="m_controlGroup">
+      <property name="title">
+       <string>GPU Tuning / Controls</string>
+      </property>
+      <layout class="QGridLayout" name="controlLayout">
+       <property name="spacing">
+        <number>10</number>
+       </property>
+       <item row="0" column="0">
+        <widget class="QCheckBox" name="m_zeroRpmCheckbox">
+         <property name="text">
+          <string>Enable Zero RPM</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QCheckBox" name="m_fanCurveCheckbox">
+         <property name="text">
+          <string>Manual Fan Curve Profile</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QCheckBox" name="m_voltageOffsetCheckbox">
+         <property name="text">
+          <string>Manual Voltage Offset</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <layout class="QHBoxLayout" name="voltageLayout">
+         <item>
+          <widget class="QSlider" name="m_voltageSlider">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="minimum">
+            <number>-200</number>
+           </property>
+           <property name="maximum">
+            <number>0</number>
+           </property>
+           <property name="value">
+            <number>0</number>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Orientation::Horizontal</enum>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QSpinBox" name="m_voltageSpinBox">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="suffix">
+            <string> mV</string>
+           </property>
+           <property name="minimum">
+            <number>-200</number>
+           </property>
+           <property name="maximum">
+            <number>0</number>
+           </property>
+           <property name="value">
+            <number>0</number>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+       <item row="2" column="0" colspan="2">
+        <widget class="QPushButton" name="m_applyTuningButton">
+         <property name="text">
+          <string>Apply Tuning Settings</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
      <widget class="QGroupBox" name="m_fpsGroup">
       <property name="title">
        <string>Performance</string>
       </property>
       <layout class="QGridLayout" name="fpsLayout">
+       <property name="spacing">
+        <number>10</number>
+       </property>
        <item row="0" column="0" colspan="2">
         <widget class="QLabel" name="m_instantFpsLabel">
          <property name="font">
           <font>
-           <family>Consolas</family>
-           <pointsize>12</pointsize>
+           <family>Segoe UI</family>
+           <pointsize>9</pointsize>
+           <bold>true</bold>
           </font>
          </property>
          <property name="text">

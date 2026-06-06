@@ -6,8 +6,6 @@
 #include <QTimer>
 #include "GpuManager.h"
 
-
-
 namespace Ui {
     class GuiWindow;
 }
@@ -17,16 +15,18 @@ class GuiWindow : public QMainWindow {
 public:
     explicit GuiWindow(GpuManager& manager,  int refreshRateMs, int refreshRateFPS, bool fpsOnly, QWidget* parent = nullptr);
     ~GuiWindow() override;
-
-    // int OpenWin(GpuManager& manager, int refreshRateMs, int refreshRateFPS = 1000, bool fpsOnly = false);
     bool OpenWin();
 
 private slots:
-    void updateHardwareMetrics();
-    void updateFpsMetrics();
-    void onResetFpsClicked();
+    void updateHardwareMetrics() const;
+    void updateFpsMetrics() const;
+    void onResetFpsClicked() const;
+    void onApplyTuningClicked();
+    void onVoltageOffsetToggled(bool checked) const;
+    void updateApplyButtonEnabled() const; // Added method to refresh button state based on changes
 
 private:
+    void initializeTuningControls();
     GpuManager& m_manager;
     QTimer* m_metricsTimer;
     QTimer* m_fpsTimer;
@@ -35,6 +35,11 @@ private:
     int m_refreshRate;
     int m_refreshRateFPS;
 
+    // Baseline values to check for changes
+    bool m_baseZeroRpm;
+    bool m_baseFanCurve;
+    adlx_int m_baseVoltage;
+
     Ui::GuiWindow *ui;
 };
-#endif //AMDFANSENSORS_WINDOW_H
+#endif //AMDFENSORS_WINDOW_H

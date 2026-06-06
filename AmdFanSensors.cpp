@@ -165,10 +165,9 @@ int main(int argc, char* argv[]) {
 			manager.ShowZeroRPMStatus();
 			manager.ShowGetAndSetFan(false, false);
 			std::cout << "Current GPU clock voltage offset: " << manager.m_statusInfo.voltageOffsetMV << " mV" << std::endl;
-			//manager.GetGPUStates();
 		}
 		else {
-			if (showTotalRam) manager.ShowTotalSystemMemory();
+			if (showTotalRam) manager.ShowTotalSystemRam();
 			if (showVram) manager.ShowGPUVRAM();
 			if (showTemp) manager.ShowGPUMemoryTemperature();
 			if (showVoltage) manager.ShowGPUVoltage();
@@ -183,7 +182,6 @@ int main(int argc, char* argv[]) {
 		if (enableGui) {
 			QApplication app(argc, argv);
 			GuiWindow guiWindow(manager, refreshRateMs, refreshRateFPSMs, fpsOnly);
-			// guiWindow.OpenWin(manager, refreshRateMs, refreshRateFPSMs, fpsOnly);
 			if (guiWindow.OpenWin()) {
 				static int res;
 				res = app.exec();
@@ -202,7 +200,7 @@ int main(int argc, char* argv[]) {
 }
 
 bool validateRefreshRate(int& refreshRateMs, std::string arg) {
-	size_t equalsPos = arg.find('=');
+	const size_t equalsPos = arg.find('=');
 	std::string refreshStr;
 	if (equalsPos != std::string::npos) {
 		refreshStr = arg.substr(equalsPos + 1);
@@ -232,7 +230,7 @@ bool validateRefreshRate(int& refreshRateMs, std::string arg) {
 
 bool validateVoltageOffset(adlx_int& voltageOffset, std::string arg) {
 	// Extract the voltage value from the argument
-	size_t equalsPos = arg.find('=');
+	const size_t equalsPos = arg.find('=');
 
 	// Extract voltage value after the '=' sign
 	std::string voltageStr;
