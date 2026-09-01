@@ -174,7 +174,7 @@ public:
     void ShowGPUMemoryTemperature() const;
     void UpdateGpuTempStruct(bool fpsOnly = false);
     void UpdateGpuFpsMetrics();
-    void UpdateGpuHardwareMetrics();
+    void UpdateGpuHardwareMetrics() const;
     void ShowGPUVoltage() const;
     void ShowSystemRAM() const;
     void ShowTotalSystemRam() const;

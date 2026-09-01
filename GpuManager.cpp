@@ -506,7 +506,7 @@ void GpuManager::UpdateGpuFpsMetrics() {
     }
 }
 
-void GpuManager::UpdateGpuHardwareMetrics() {
+void GpuManager::UpdateGpuHardwareMetrics() const {
     adlx_bool supported = false;
 
     EnsurePerfServices();

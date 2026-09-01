@@ -7,59 +7,8 @@
 #include <iostream>
 #include <string>
 
-// bool validateRefreshRateFPS(int& refreshRateFPSMs, std::string arg) {
-// 	bool defaultMode;
-// 	bool enableGui;
-// 	// Handle refresh rate parameter
-// 	size_t equalsPos = arg.find('=');
-// 	std::string refreshRateFPSStr;
-// 	if (equalsPos != std::string::npos) {
-// 		refreshRateFPSStr = arg.substr(equalsPos + 1);
-// 	} else {
-// 		refreshRateFPSStr = "1000";
-// 	}
-//
-// 	// char* endptr = nullptr;
-//
-// 	// VALIDATE: Refresh rate must be between 100ms and 5000ms
-// 	// int newRefreshRateFPS = static_cast<int>(strtol(refresRateFPShStr.c_str(), &endptr, 10));
-// 	long newRefreshRateFPS;
-// 	auto result = std::from_chars(refreshRateFPSStr.data(), refreshRateFPSStr.data() + refreshRateFPSStr.size(), newRefreshRateFPS, 10);
-// 	if (result.ec != std::errc{}) {
-// 		std::cerr << "Error: Invalid refresh rate value: " << refreshRateFPSStr << std::endl;
-// 		return true;
-// 	}
-//
-// 	// if (endptr == refresRateFPShStr.c_str()) {
-// 	// 	std::cerr << "Error: Invalid refresh rate value: " << refresRateFPShStr << std::endl;
-// 	// 	return 1;
-// 	// }
-// 	// if (newRefreshRateFPS == std::string::npos) {
-// 	// 	std::cerr << "Error: Invalid refresh rate value." << std::endl;
-// 	// 	return 1;
-// 	// }
-// 	if (newRefreshRateFPS >= 100 && newRefreshRateFPS <= 5000) {
-// 		refreshRateFPSMs = newRefreshRateFPS;
-// 	}
-// 	else {
-// 		std::cerr << "Error: FPS refresh rate must be between 100ms and 5000ms."
-// 			<< "Received: " << newRefreshRateFPS << "ms. "
-// 			<< "Using default value of 1000ms." << std::endl;
-// 		refreshRateFPSMs = 1000;
-// 	}
-// 	defaultMode = false;
-// 	enableGui = true;
-// 	return false;
-// }
-
 int main(int argc, char* argv[]) {
-	// return OpenWin();
-	// SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
-	// AddDllDirectory(L"D:\\Qt67\\6.7.2\\msvc2019_64\\bin");
-	// SetDllDirectory(L"D:\\Qt67\\6.7.2\\msvc2019_64\\bin");
-
 	try {
-		// QApplication app(argc, argv);
 		GpuManager manager;
 
 		bool showVram = false;
@@ -79,9 +28,9 @@ int main(int argc, char* argv[]) {
 		bool enableGui = false;
 		int refreshRateMs = 1000;
 		int refreshRateFPSMs = 1000;
-		bool fpsOnly = false;  // NEW: FPS-only monitoring mode flag
+		bool fpsOnly = false;
 
-		adlx_int voltageOffset = 0;  // NEW: stores voltage offset from command line
+		adlx_int voltageOffset = 0;
 
 		for (int i = 1; i < argc; ++i) {
 			std::string arg = argv[i];
@@ -177,7 +126,7 @@ int main(int argc, char* argv[]) {
 			if (showRamp) manager.ShowGetAndSetFan(false, false);
 			else if (setRamp || setDefaultRamp) manager.ShowGetAndSetFan(true, setDefaultRamp);
 			if (showVoltageOffset) std::cout << "Current GPU clock voltage offset: " << manager.GetVoltageOffset() << " mV" << std::endl;
-			else if (setVoltageOffset) manager.SetVoltageOffset(voltageOffset);  // Apply if not already done in defaultMode
+			else if (setVoltageOffset) manager.SetVoltageOffset(voltageOffset);
 		}
 		if (enableGui) {
 			QApplication app(argc, argv);
@@ -229,20 +178,16 @@ bool validateRefreshRate(int& refreshRateMs, std::string arg) {
 }
 
 bool validateVoltageOffset(adlx_int& voltageOffset, std::string arg) {
-	// Extract the voltage value from the argument
 	const size_t equalsPos = arg.find('=');
 
-	// Extract voltage value after the '=' sign
 	std::string voltageStr;
 	if (equalsPos != std::string::npos) {
 		voltageStr = arg.substr(equalsPos + 1);
 	}
 	else {
-		// No value provided, use default of 0 (or handle as needed)
 		voltageStr = "0";
 	}
 
-	// Parse and validate the voltage value
 	auto result = std::from_chars(voltageStr.data(), voltageStr.data() + voltageStr.size(), voltageOffset, 10);
 	if (result.ec != std::errc{}) {
 		std::cerr << "Error: Invalid voltage offest value: " << voltageStr << std::endl;

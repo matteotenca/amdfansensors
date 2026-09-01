@@ -23,7 +23,9 @@ private slots:
     void onResetFpsClicked() const;
     void onApplyTuningClicked();
     void onVoltageOffsetToggled(bool checked) const;
-    void updateApplyButtonEnabled() const; // Added method to refresh button state based on changes
+    void updateApplyButtonEnabled() const;
+    void onMonitoringToggled(bool enabled) const;
+    void onHardwareStatsToggled(bool enabled) const;
 
 private:
     void initializeTuningControls();
@@ -35,7 +37,6 @@ private:
     int m_refreshRate;
     int m_refreshRateFPS;
 
-    // Baseline values to check for changes
     bool m_baseZeroRpm;
     bool m_baseFanCurve;
     adlx_int m_baseVoltage;
