@@ -40,27 +40,21 @@ GuiWindow::~GuiWindow() {
 }
 
 void GuiWindow::onResetFpsClicked() const {
-    m_manager.m_temperatureInfo.fpsHistory.reset();
-    m_manager.m_temperatureInfo.maxFPS = 0;
-    m_manager.m_temperatureInfo.minFPS = 0;
-    m_manager.m_temperatureInfo.totalFPS = 0;
-    m_manager.m_temperatureInfo.instantFPS = 0;
-    m_manager.m_temperatureInfo.avgFPS = 0;
-    m_manager.m_temperatureInfo.fullCounter = 0;
+    m_manager.ResetFpsStats();
 }
 
 void GuiWindow::updateHardwareMetrics() const {
     if (m_fpsOnlyMode) return;
 
     m_manager.UpdateGpuTempStruct(false);
-    auto info = m_manager.m_temperatureInfo;
+    const auto& info = m_manager.GetTemperatureInfo();
 
     ui->m_gpuTempLabel->setText(QString("GPU: %1°C").arg(info.gpuTemperatureC, 4, 'f', 0));
     ui->m_hotspotTempLabel->setText(QString("GPU Hotspot: %1°C").arg(info.gpuHotspotTemperatureC, 4, 'f', 0));
     ui->m_memTempLabel->setText(QString("GPU Memory: %1°C").arg(info.gpuMemoryTemperatureC, 4, 'f', 0));
-    ui->m_statusLabel->setText(QString("VRAM Used: %1 MB/%2 MB").arg(info.vRam).arg(m_manager.m_statusInfo.totalGPUMemoryMB));
+    ui->m_statusLabel->setText(QString("VRAM Used: %1 MB/%2 MB").arg(info.vRam).arg(m_manager.GetStatusInfo().totalGPUMemoryMB));
 
-    uint32_t totalSys = static_cast<uint32_t>(m_manager.m_statusInfo.totalSystemRamMB);
+    uint32_t totalSys = static_cast<uint32_t>(m_manager.GetStatusInfo().totalSystemRamMB);
     int usedSys = info.usedSystemRam;
     int freeSys = totalSys - usedSys;
 
@@ -78,11 +72,11 @@ void GuiWindow::updateHardwareMetrics() const {
 
     ui->m_memoryLabel->setText(QString("GPU Memory Usage: %1 MB/%2 MB - Free %3 MB - %4% Used")
                        .arg(info.vRam)
-                       .arg(m_manager.m_statusInfo.totalGPUMemoryMB)
-                       .arg(m_manager.m_statusInfo.totalGPUMemoryMB - info.vRam)
-                       .arg(m_manager.m_statusInfo.totalGPUMemoryMB > 0 ? info.vRam * 100 / m_manager.m_statusInfo.totalGPUMemoryMB : 0)
+                       .arg(m_manager.GetStatusInfo().totalGPUMemoryMB)
+                       .arg(m_manager.GetStatusInfo().totalGPUMemoryMB - info.vRam)
+                       .arg(m_manager.GetStatusInfo().totalGPUMemoryMB > 0 ? info.vRam * 100 / m_manager.GetStatusInfo().totalGPUMemoryMB : 0)
                        );
-    ui->m_memoryBar->setMaximum(m_manager.m_statusInfo.totalGPUMemoryMB);
+    ui->m_memoryBar->setMaximum(m_manager.GetStatusInfo().totalGPUMemoryMB);
     ui->m_memoryBar->setValue(info.vRam);
 
     ui->m_gpuUsageLabel->setText(QString("GPU Usage: %1% - Power %2W")
@@ -93,13 +87,13 @@ void GuiWindow::updateHardwareMetrics() const {
 
 void GuiWindow::updateFpsMetrics() const {
     m_manager.UpdateGpuTempStruct(true);
-    auto info = m_manager.m_temperatureInfo;
+    const auto& info = m_manager.GetTemperatureInfo();
 
     ui->m_instantFpsLabel->setText(QString("Current FPS: %1 / Ring: %2 / Unattended: %3")
-        .arg(info.instantFPS, 2, 'f', 0)
-        .arg(info.fullCounter, 2, 'd', 0)
-        .arg(info.totalUnattended, 2, 'd', 0));
-    ui->m_avgFpsLabel->setText(QString("Average: %1").arg(info.avgFPS, 2, 'f', 0));
+        .arg(info.instantFPS, 2)
+        .arg(info.fullCounter, 2)
+        .arg(info.totalUnattended, 2));
+    ui->m_avgFpsLabel->setText(QString("Average: %1").arg(info.avgFPS, 2));
     ui->m_minMaxFpsLabel->setText(QString("Min: %1 | Max: %2").arg(info.minFPS).arg(info.maxFPS));
 }
 
@@ -138,7 +132,12 @@ void GuiWindow::initializeTuningControls() {
             ui->m_zeroRpmCheckbox->setText("Zero RPM (Unsupported)");
         }
         m_baseZeroRpm = m_manager.GetZeroRPMState();
+    } catch (const std::exception& e) {
+        std::cerr << "[Gui] Failed to query ZeroRPM support: " << e.what() << std::endl;
+        ui->m_zeroRpmCheckbox->setEnabled(false);
+        ui->m_zeroRpmCheckbox->setText("Zero RPM (Unsupported)");
     } catch (...) {
+        std::cerr << "[Gui] Failed to query ZeroRPM support: unknown error" << std::endl;
         ui->m_zeroRpmCheckbox->setEnabled(false);
         ui->m_zeroRpmCheckbox->setText("Zero RPM (Unsupported)");
     }
@@ -149,7 +148,12 @@ void GuiWindow::initializeTuningControls() {
         m_manager.GetVoltageOffsetRange(minVolt, maxVolt);
         if (maxVolt > 0) maxVolt = 0; 
         if (minVolt > 0) minVolt = -200;
+    } catch (const std::exception& e) {
+        std::cerr << "[Gui] Failed to query voltage offset range: " << e.what() << std::endl;
+        minVolt = -200;
+        maxVolt = 0;
     } catch (...) {
+        std::cerr << "[Gui] Failed to query voltage offset range: unknown error" << std::endl;
         minVolt = -200;
         maxVolt = 0;
     }
@@ -175,7 +179,14 @@ void GuiWindow::initializeTuningControls() {
             ui->m_voltageSpinBox->setValue(0);
         }
         m_baseVoltage = currentOffset;
+    } catch (const std::exception& e) {
+        std::cerr << "[Gui] Failed to query current voltage offset: " << e.what() << std::endl;
+        ui->m_voltageOffsetCheckbox->setChecked(false);
+        ui->m_voltageSlider->setValue(0);
+        ui->m_voltageSpinBox->setValue(0);
+        m_baseVoltage = 0;
     } catch (...) {
+        std::cerr << "[Gui] Failed to query current voltage offset: unknown error" << std::endl;
         ui->m_voltageOffsetCheckbox->setChecked(false);
         ui->m_voltageSlider->setValue(0);
         ui->m_voltageSpinBox->setValue(0);

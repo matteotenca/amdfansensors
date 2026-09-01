@@ -166,7 +166,9 @@ public:
     GpuManager(const GpuManager&) = delete;
     GpuManager& operator=(const GpuManager&) = delete;
 
-    GpuStatusInfo GetStatusInfo() const;
+    const GpuStatusInfo& GetStatusInfo() const;
+    const GlobalStatusInfo& GetTemperatureInfo() const;
+    void ResetFpsStats();
     adlx_int GetUsedSystemRam() const;
     int GetUnattended() const;
     // Monitoring methods - marked const as they don't modify state
@@ -195,7 +197,8 @@ public:
     adlx_int GetVoltageOffset() const; // NEW: Getter for voltage offset
     bool GetVoltageOffsetRange(adlx_int& minVolt, adlx_int& maxVolt) const;
 
-    // Pointers are now mutable to allow lazy-loading initialization within const methods
+private:
+    // Pointers are mutable to allow lazy-loading initialization within const methods
     mutable IADLXManualGraphicsTuning2Ptr m_manualGFXTuning2 = nullptr;
     mutable IADLXGPUMetricsSupportPtr m_gpuMetricsSupport = nullptr;
     mutable IADLXSystemMetricsSupportPtr m_systemMetricsSupport = nullptr;
@@ -206,7 +209,7 @@ public:
     IADLXGPUPtr m_oneGPU = nullptr;
     GpuStatusInfo m_statusInfo; // Status information struct
     GlobalStatusInfo m_temperatureInfo; // Temperature information struct
-private:
+
     // Lazy loading helpers
     // void EnsureAllMetrics() const;
     void EnsurePerfServices() const;
@@ -216,6 +219,7 @@ private:
     IADLXGPUMetricsPtr GetCurrentGpuMetrics() const;
     void EnsureSystemMetricsSupport() const;
     IADLXSystemMetricsPtr GetCurrentSystemMetrics() const;
+    adlx_int ReadUsedSystemRam(const IADLXSystemMetricsPtr& systemMetrics) const;
     adlx_int GetFanPercent() const;
     adlx_double GetGPUUsage() const;
     IADLXAllMetricsPtr GetCurrentAllMetrics() const;

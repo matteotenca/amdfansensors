@@ -43,4 +43,4 @@ private:
 
     Ui::GuiWindow *ui;
 };
-#endif //AMDFENSORS_WINDOW_H
+#endif //AMDFANSENSORS_WINDOW_H

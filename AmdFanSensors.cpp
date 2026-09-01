@@ -78,6 +78,9 @@ int main(int argc, char* argv[]) {
 				enableGui = true;
 			}
 			else if (arg == "--fps-only" || arg == "-u") { fpsOnly = true; defaultMode = false; enableGui = true;}
+			else {
+				std::cerr << "Warning: unknown argument '" << arg << "' ignored. Use --help for usage." << std::endl;
+			}
 		}
 
 		if (help) {
@@ -113,7 +116,7 @@ int main(int argc, char* argv[]) {
 			manager.ShowGPUVoltage();
 			manager.ShowZeroRPMStatus();
 			manager.ShowGetAndSetFan(false, false);
-			std::cout << "Current GPU clock voltage offset: " << manager.m_statusInfo.voltageOffsetMV << " mV" << std::endl;
+			std::cout << "Current GPU clock voltage offset: " << manager.GetVoltageOffset() << " mV" << std::endl;
 		}
 		else {
 			if (showTotalRam) manager.ShowTotalSystemRam();
