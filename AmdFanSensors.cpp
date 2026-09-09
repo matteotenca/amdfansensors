@@ -78,6 +78,7 @@ int main(int argc, char* argv[]) {
 				enableGui = true;
 			}
 			else if (arg == "--fps-only" || arg == "-u") { fpsOnly = true; defaultMode = false; enableGui = true;}
+			else if (arg == "--gui-child") { /* internal marker for the detached GUI relaunch */ }
 			else {
 				std::cerr << "Warning: unknown argument '" << arg << "' ignored. Use --help for usage." << std::endl;
 			}
@@ -132,11 +133,33 @@ int main(int argc, char* argv[]) {
 			else if (setVoltageOffset) manager.SetVoltageOffset(voltageOffset);
 		}
 		if (enableGui) {
+			// When launched from a shell, relaunch ourselves as a detached process so the
+			// GUI survives after the shell returns control to the prompt. The relaunched
+			// instance re-enters this block with the internal --gui-child marker set.
+			bool guiChildInvoc = false;
+			for (int i = 1; i < argc; ++i)
+				if (std::string(argv[i]) == "--gui-child") { guiChildInvoc = true; break; }
+
+			if (!guiChildInvoc && GetConsoleWindow() != nullptr) {
+				std::wstring cmdline = GetCommandLineW();
+				cmdline += L" --gui-child";
+				STARTUPINFOW si{};
+				si.cb = sizeof(si);
+				PROCESS_INFORMATION pi{};
+				if (CreateProcessW(nullptr, &cmdline[0], nullptr, nullptr, FALSE,
+					DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP, nullptr, nullptr, &si, &pi)) {
+					CloseHandle(pi.hThread);
+					CloseHandle(pi.hProcess);
+					return 0; // parent returns immediately; the detached child runs the GUI
+				}
+				std::cerr << "Warning: could not detach GUI process (error " << GetLastError()
+					<< "); running attached." << std::endl;
+			}
+
 			QApplication app(argc, argv);
 			GuiWindow guiWindow(manager, refreshRateMs, refreshRateFPSMs, fpsOnly);
 			if (guiWindow.OpenWin()) {
-				static int res;
-				res = app.exec();
+				int res = app.exec();
 				return res;
 			}
 			return 1;
