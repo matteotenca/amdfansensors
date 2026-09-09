@@ -7,7 +7,7 @@
 #include <QSpinBox>
 
 GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS, bool fpsOnly, QWidget* parent)
-    : QMainWindow(parent), m_manager(manager), m_fpsOnlyMode(fpsOnly), m_refreshRate(refreshRateMs), m_refreshRateFPS(refreshRateFPS), ui(new Ui::GuiWindow)  {
+    : QMainWindow(parent), m_manager(manager), m_fpsOnlyMode(fpsOnly), m_refreshRate(refreshRateMs), m_refreshRateFPS(refreshRateFPS), m_refreshRateCliDefault(refreshRateMs), m_refreshRateFpsCliDefault(refreshRateFPS), ui(new Ui::GuiWindow)  {
 
     ui->setupUi(this);
 
@@ -26,10 +26,14 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
 
     onHardwareStatsToggled(ui->m_enableHardwareStatsCheckbox->isChecked());
     initializeTuningControls();
+    initializeRefreshRateControls();
 
     if (m_fpsOnlyMode) {
         ui->m_hardwareGroup->hide();
         ui->m_controlGroup->hide();
+        ui->m_hwRefreshLabelTitle->setEnabled(false);
+        ui->m_hwRefreshSlider->setEnabled(false);
+        ui->m_hwRefreshValueLabel->setEnabled(false);
     }
 
     setWindowTitle(QString("AMD GPU Monitor (Qt 6.7) - -a=%1 -A=%2").arg(m_refreshRate).arg(m_refreshRateFPS));
@@ -194,6 +198,55 @@ void GuiWindow::initializeTuningControls() {
     }
 
     updateApplyButtonEnabled();
+}
+
+void GuiWindow::initializeRefreshRateControls() {
+    ui->m_hwRefreshSlider->setRange(100, 5000);
+    ui->m_hwRefreshSlider->setValue(m_refreshRate);
+    ui->m_hwRefreshValueLabel->setText(QString("%1 ms").arg(m_refreshRate));
+
+    ui->m_fpsRefreshSlider->setRange(100, 5000);
+    ui->m_fpsRefreshSlider->setValue(m_refreshRateFPS);
+    ui->m_fpsRefreshValueLabel->setText(QString("%1 ms").arg(m_refreshRateFPS));
+
+    connect(ui->m_hwRefreshSlider, &QSlider::valueChanged, this, &GuiWindow::onHwRefreshSliderChanged);
+    connect(ui->m_fpsRefreshSlider, &QSlider::valueChanged, this, &GuiWindow::onFpsRefreshSliderChanged);
+    connect(ui->m_applyRefreshRateButton, &QPushButton::clicked, this, &GuiWindow::onApplyRefreshRateClicked);
+
+    updateRefreshApplyButtonEnabled();
+}
+
+void GuiWindow::updateRefreshApplyButtonEnabled() const {
+    bool hwRateChanged = ui->m_hwRefreshSlider->value() != m_refreshRateCliDefault;
+    bool fpsRateChanged = ui->m_fpsRefreshSlider->value() != m_refreshRateFpsCliDefault;
+
+    ui->m_applyRefreshRateButton->setEnabled(hwRateChanged || fpsRateChanged);
+}
+
+void GuiWindow::onHwRefreshSliderChanged(int value) const {
+    ui->m_hwRefreshValueLabel->setText(QString("%1 ms").arg(value));
+    updateRefreshApplyButtonEnabled();
+}
+
+void GuiWindow::onFpsRefreshSliderChanged(int value) const {
+    ui->m_fpsRefreshValueLabel->setText(QString("%1 ms").arg(value));
+    updateRefreshApplyButtonEnabled();
+}
+
+void GuiWindow::onApplyRefreshRateClicked() {
+    m_refreshRate = ui->m_hwRefreshSlider->value();
+    m_refreshRateFPS = ui->m_fpsRefreshSlider->value();
+
+    if (m_metricsTimer->isActive())
+        m_metricsTimer->start(m_refreshRate);
+    if (m_fpsTimer->isActive())
+        m_fpsTimer->start(m_refreshRateFPS);
+
+    m_refreshRateCliDefault = m_refreshRate;
+    m_refreshRateFpsCliDefault = m_refreshRateFPS;
+
+    updateRefreshApplyButtonEnabled();
+    setWindowTitle(QString("AMD GPU Monitor (Qt 6.7) - -a=%1 -A=%2").arg(m_refreshRate).arg(m_refreshRateFPS));
 }
 
 void GuiWindow::onVoltageOffsetToggled(bool checked) const {

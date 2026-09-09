@@ -26,9 +26,14 @@ private slots:
     void updateApplyButtonEnabled() const;
     void onMonitoringToggled(bool enabled) const;
     void onHardwareStatsToggled(bool enabled) const;
+    void onHwRefreshSliderChanged(int value) const;
+    void onFpsRefreshSliderChanged(int value) const;
+    void onApplyRefreshRateClicked();
 
 private:
     void initializeTuningControls();
+    void initializeRefreshRateControls();
+    void updateRefreshApplyButtonEnabled() const;
     GpuManager& m_manager;
     QTimer* m_metricsTimer;
     QTimer* m_fpsTimer;
@@ -36,6 +41,9 @@ private:
 
     int m_refreshRate;
     int m_refreshRateFPS;
+
+    int m_refreshRateCliDefault;
+    int m_refreshRateFpsCliDefault;
 
     bool m_baseZeroRpm;
     bool m_baseFanCurve;

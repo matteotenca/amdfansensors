@@ -54,6 +54,10 @@ QGroupBox#m_fpsGroup {
     border-color: #F9E2AF;
 }
 
+QGroupBox#m_refreshRateGroup {
+    border-color: #CBA6F7;
+}
+
 /* === Labels === */
 QLabel {
     color: #CAD6F4;
@@ -649,6 +653,103 @@ QSpinBox:disabled {
         <widget class="QPushButton" name="m_resetFpsButton">
          <property name="text">
           <string>Reset FPS Data</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="QGroupBox" name="m_refreshRateGroup">
+      <property name="title">
+       <string>Update Frequency</string>
+      </property>
+      <layout class="QGridLayout" name="refreshRateLayout">
+       <property name="spacing">
+        <number>8</number>
+       </property>
+       <item row="0" column="0">
+        <widget class="QLabel" name="m_hwRefreshLabelTitle">
+         <property name="text">
+          <string>Hardware Data</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QSlider" name="m_hwRefreshSlider">
+         <property name="minimum">
+          <number>100</number>
+         </property>
+         <property name="maximum">
+          <number>5000</number>
+         </property>
+         <property name="value">
+          <number>1000</number>
+         </property>
+         <property name="orientation">
+          <enum>Qt::Orientation::Horizontal</enum>
+         </property>
+         <property name="tickPosition">
+          <enum>QSlider::TickPosition::TicksBelow</enum>
+         </property>
+         <property name="tickInterval">
+          <number>500</number>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="2">
+        <widget class="QLabel" name="m_hwRefreshValueLabel">
+         <property name="alignment">
+          <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
+         </property>
+         <property name="text">
+          <string>1000 ms</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="m_fpsRefreshLabelTitle">
+         <property name="text">
+          <string>FPS Monitor</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QSlider" name="m_fpsRefreshSlider">
+         <property name="minimum">
+          <number>100</number>
+         </property>
+         <property name="maximum">
+          <number>5000</number>
+         </property>
+         <property name="value">
+          <number>1000</number>
+         </property>
+         <property name="orientation">
+          <enum>Qt::Orientation::Horizontal</enum>
+         </property>
+         <property name="tickPosition">
+          <enum>QSlider::TickPosition::TicksBelow</enum>
+         </property>
+         <property name="tickInterval">
+          <number>500</number>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="2">
+        <widget class="QLabel" name="m_fpsRefreshValueLabel">
+         <property name="alignment">
+          <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
+         </property>
+         <property name="text">
+          <string>1000 ms</string>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="0" colspan="3">
+        <widget class="QPushButton" name="m_applyRefreshRateButton">
+         <property name="text">
+          <string>Apply Update Rates</string>
          </property>
         </widget>
        </item>
