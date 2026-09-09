@@ -25,6 +25,7 @@ add_executable(AmdFanSensors
 		Gui.cpp
 		Gui.h
 		Gui.ui
+		resources.rc
 )
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Zc:__cplusplus /permissive- /std:c++17 ")

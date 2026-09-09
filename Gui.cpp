@@ -10,6 +10,7 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
     : QMainWindow(parent), m_manager(manager), m_fpsOnlyMode(fpsOnly), m_refreshRate(refreshRateMs), m_refreshRateFPS(refreshRateFPS), m_refreshRateCliDefault(refreshRateMs), m_refreshRateFpsCliDefault(refreshRateFPS), ui(new Ui::GuiWindow)  {
 
     ui->setupUi(this);
+    setWindowIcon(QIcon(":/icons/icon.ico"));
 
     m_metricsTimer = new QTimer(this);
     m_fpsTimer = new QTimer(this);
