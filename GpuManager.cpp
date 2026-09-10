@@ -7,6 +7,8 @@
 #include <iostream>
 #include <string>
 #include <algorithm>
+#include <vector>
+#include <utility>
 
 GpuManager::GpuManager() {
     ADLX_RESULT res = g_ADLX.Initialize();
@@ -454,7 +456,6 @@ bool GpuManager::IsFanCurveDefaultOne() {
     if (states->Size() != 5) {
         return false;
     }
-
     for (adlx_uint crt = states->Begin(); crt != states->End(); ++crt) {
         IADLXManualFanTuningStatePtr oneState;
         res = states->At(crt, &oneState);
@@ -472,8 +473,40 @@ bool GpuManager::IsFanCurveDefaultOne() {
             return false;
         }
     }
-
     return true;
+}
+
+std::vector<std::pair<int, int>> GpuManager::GetFanCurvePoints() {
+    std::vector<std::pair<int, int>> points;
+    try {
+        EnsureFanTuning();
+        if (!m_manualFanTuning) return points;
+        
+        IADLXManualFanTuningStateListPtr states;
+        ADLX_RESULT res = m_manualFanTuning->GetFanTuningStates(&states);
+        if (ADLX_FAILED(res)) return points;
+        
+        IADLXManualFanTuningStatePtr oneState;
+        for (adlx_uint crt = states->Begin(); crt != states->End(); ++crt) {
+            res = states->At(crt, &oneState);
+            if (ADLX_FAILED(res)) continue;
+            
+            adlx_int speed = 0, temperature = 0;
+            res = oneState->GetFanSpeed(&speed);
+            if (ADLX_FAILED(res)) continue;
+            res = oneState->GetTemperature(&temperature);
+            if (ADLX_FAILED(res)) continue;
+            
+            points.emplace_back((int)temperature, (int)speed);
+        }
+    }
+    catch (const std::exception& e) {
+        std::cerr << "[GpuManager] GetFanCurvePoints: " << e.what() << std::endl;
+    }
+    catch (...) {
+        std::cerr << "[GpuManager] GetFanCurvePoints: unknown error" << std::endl;
+    }
+    return points;
 }
 
 void GpuManager::UpdateGpuFpsMetrics() {

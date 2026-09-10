@@ -3,6 +3,7 @@
 #include <iostream>
 #include <QString>
 #include <QCheckBox>
+#include <QPushButton>
 #include <QSlider>
 #include <QSpinBox>
 
@@ -24,6 +25,11 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
 
     ui->m_enableHardwareStatsCheckbox->setChecked(true);
     connect(ui->m_enableHardwareStatsCheckbox, &QCheckBox::toggled, this, &GuiWindow::onHardwareStatsToggled);
+
+    // Initialize Curve Plot Widget
+    m_curvePlot = new CurvePlotWidget(this);
+    ui->controlLayout->addWidget(m_curvePlot, 3, 0, 1, 2);
+    m_curvePlot->setPoints(m_manager.GetFanCurvePoints());
 
     onHardwareStatsToggled(ui->m_enableHardwareStatsCheckbox->isChecked());
     initializeTuningControls();
@@ -291,7 +297,7 @@ void GuiWindow::onApplyTuningClicked() {
         std::cout << "Applied settings: ZeroRPM=" << ui->m_zeroRpmCheckbox->isChecked()
                   << ", CustomFan=" << customFan
                   << ", VoltageOffset=" << voltOffset << " mV" << std::endl;
-
+        m_curvePlot->setPoints(m_manager.GetFanCurvePoints());
         updateApplyButtonEnabled();
 
     } catch (const std::exception& e) {

@@ -7,6 +7,8 @@
 #include <IPerformanceMonitoring.h>
 #include <IGPUManualGFXTuning.h>
 #include <stdexcept>
+#include <vector>
+#include <utility>
 
 // Ring buffer template for efficient circular storage
 template <typename T, size_t Capacity>
@@ -196,6 +198,7 @@ public:
     void ShowGPUUsage() const;
     adlx_int GetVoltageOffset() const; // NEW: Getter for voltage offset
     bool GetVoltageOffsetRange(adlx_int& minVolt, adlx_int& maxVolt) const;
+    std::vector<std::pair<int, int>> GetFanCurvePoints();
 
 private:
     // Pointers are mutable to allow lazy-loading initialization within const methods

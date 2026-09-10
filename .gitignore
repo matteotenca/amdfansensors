@@ -9,3 +9,18 @@
 /imgui.ini
 /*.bak
 
+/theme/
+/AutoTune.cpp
+/dark_blue.qss
+/gpu.png
+/graphic-card.png
+/Gui.qss
+/icon.png
+/mainPerfAllMetrics.cpp
+/mainPerfFPSMetrics.cpp
+/opencode.json
+/PerfGPUMetrics.cpp
+/resources.rcc
+/server.py
+/style.qss
+/test_ring.py
