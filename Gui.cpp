@@ -6,6 +6,7 @@
 #include <QPushButton>
 #include <QSlider>
 #include <QSpinBox>
+#include <QMessageBox>
 
 GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS, bool fpsOnly, QWidget* parent)
     : QMainWindow(parent), m_manager(manager), m_fpsOnlyMode(fpsOnly), m_refreshRate(refreshRateMs), m_refreshRateFPS(refreshRateFPS), m_refreshRateCliDefault(refreshRateMs), m_refreshRateFpsCliDefault(refreshRateFPS), ui(new Ui::GuiWindow)  {
@@ -29,7 +30,11 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
     // Initialize Curve Plot Widget
     m_curvePlot = new CurvePlotWidget(this);
     ui->controlLayout->addWidget(m_curvePlot, 3, 0, 1, 2);
+    m_curvePlot->setMinimumHeight(150);
     m_curvePlot->setPoints(m_manager.GetFanCurvePoints());
+
+    ui->controlLayout->activate();
+    ui->m_controlGroup->update();
 
     onHardwareStatsToggled(ui->m_enableHardwareStatsCheckbox->isChecked());
     initializeTuningControls();
@@ -300,8 +305,17 @@ void GuiWindow::onApplyTuningClicked() {
         m_curvePlot->setPoints(m_manager.GetFanCurvePoints());
         updateApplyButtonEnabled();
 
+        ui->m_applyTuningButton->setText("Applied!");
+        QTimer::singleShot(2500, ui->m_applyTuningButton, [this]() { ui->m_applyTuningButton->setText("Apply Tuning Settings"); });
+
     } catch (const std::exception& e) {
         std::cerr << "Error applying tuning settings: " << e.what() << std::endl;
+        QMessageBox::critical(this, "Tuning Error",
+            QString("Failed to apply tuning settings:\n%1").arg(e.what()));
+    }
+    catch (...) {
+        std::cerr << "Error applying tuning settings: unknown error" << std::endl;
+        QMessageBox::critical(this, "Tuning Error", "Failed to apply tuning settings: unknown error.");
     }
 }
 

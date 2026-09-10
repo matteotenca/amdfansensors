@@ -31,11 +31,18 @@ protected:
 
         if (m_points.empty()) return;
 
+        // Padding and effective area
+        const float padding = 25.0f;
+        float effectiveWidth = width() - (padding * 2);
+        float effectiveHeight = height() - (padding * 2);
+
         // Grid & Axes
         QPen axisPen(QColor("#45475A"), 1, Qt::SolidLine);
         painter.setPen(axisPen);
-        painter.drawLine(0, height() - 1, width(), height() - 1); // X axis
-        painter.drawLine(0, 0, 0, height() - 1); // Y axis
+        // X axis shifted to bottom padding
+        painter.drawLine(padding, height() - padding, width() - padding, height() - padding); 
+        // Y axis shifted to left padding
+        painter.drawLine(padding, padding, padding, height() - padding);
 
         // Legend - Labels
         painter.setPen(QPen(QColor("#BAC2DE"), 1));
@@ -45,9 +52,14 @@ protected:
         
         painter.drawText(rect(), Qt::AlignBottom | Qt::AlignHCenter, "Temp (°C)");
         painter.save();
-        painter.translate(10, height() / 2);
+        painter.translate(padding / 2, height() / 2);
         painter.rotate(-90);
-        painter.drawText(rect(), Qt::AlignHCenter, "Fan (%)");
+        // Draw the vertical label centered on the rotated origin using font metrics
+        const QString fanLabel = "Fan (%)";
+        const QFontMetrics fm(labelFont);
+        painter.drawText(-fm.horizontalAdvance(fanLabel) / 2.0,
+                         (fm.descent() - fm.ascent()) / 2.0,
+                         fanLabel);
         painter.restore();
 
         // Draw Curve
@@ -56,11 +68,32 @@ protected:
 
         QPolygonF polyline;
         for (const auto& p : m_points) {
-            float x = (float)p.first / 100.0f * width();
-            float y = (float)(100 - p.second) / 100.0f * height();
+            float x = padding + ((float)p.first / 100.0f * effectiveWidth);
+            float y = padding + ((float)(100 - p.second) / 100.0f * effectiveHeight);
             polyline << QPointF(x, y);
         }
         painter.drawPolyline(polyline);
+
+        // Draw Point Markers and Labels
+        for (size_t i = 0; i < m_points.size(); ++i) {
+            const auto& p = m_points[i];
+            float x = padding + ((float)p.first / 100.0f * effectiveWidth);
+            float y = padding + ((float)(100 - p.second) / 100.0f * effectiveHeight);
+            
+            // Marker
+            painter.setBrush(QBrush(QColor("#89DCEB")));
+            painter.setPen(Qt::NoPen);
+            painter.drawEllipse(QPointF(x, y), 3, 3);
+
+            // Coordinate Text
+            painter.setPen(QPen(QColor("#CBA6F7"), 1));
+            painter.setFont(labelFont);
+            QString label = QString("%1°C / %2%").arg(p.first).arg(p.second);
+            
+            float textX = x + 25;
+            float textY = y;
+            painter.drawText(textX, textY, label);
+        }
     }
 private:
     std::vector<std::pair<int, int>> m_points;
