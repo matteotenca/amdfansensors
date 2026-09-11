@@ -102,7 +102,7 @@ private:
 class GuiWindow : public QMainWindow {
     Q_OBJECT
 public:
-    explicit GuiWindow(GpuManager& manager,  int refreshRateMs, int refreshRateFPS, bool fpsOnly, QWidget* parent = nullptr);
+    explicit GuiWindow(GpuManager& manager,  int refreshRateMs, int refreshRateFPS, bool fpsOnly, bool hwRateProvided, bool fpsRateProvided, QWidget* parent = nullptr);
     ~GuiWindow() override;
     bool OpenWin();
 
@@ -133,6 +133,8 @@ private:
 
     int m_refreshRateCliDefault;
     int m_refreshRateFpsCliDefault;
+    bool m_hwRateProvided;
+    bool m_fpsRateProvided;
 
     bool m_baseZeroRpm;
     bool m_baseFanCurve;

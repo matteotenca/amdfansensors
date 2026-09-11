@@ -7,9 +7,10 @@
 #include <QSlider>
 #include <QSpinBox>
 #include <QMessageBox>
+#include <QSettings>
 
-GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS, bool fpsOnly, QWidget* parent)
-    : QMainWindow(parent), m_manager(manager), m_fpsOnlyMode(fpsOnly), m_refreshRate(refreshRateMs), m_refreshRateFPS(refreshRateFPS), m_refreshRateCliDefault(refreshRateMs), m_refreshRateFpsCliDefault(refreshRateFPS), ui(new Ui::GuiWindow)  {
+GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS, bool fpsOnly, bool hwRateProvided, bool fpsRateProvided, QWidget* parent)
+    : QMainWindow(parent), m_manager(manager), m_fpsOnlyMode(fpsOnly), m_refreshRate(refreshRateMs), m_refreshRateFPS(refreshRateFPS), m_refreshRateCliDefault(refreshRateMs), m_refreshRateFpsCliDefault(refreshRateFPS), m_hwRateProvided(hwRateProvided), m_fpsRateProvided(fpsRateProvided), ui(new Ui::GuiWindow)  {
 
     ui->setupUi(this);
     setWindowIcon(QIcon(":/icons/icon.ico"));
@@ -214,12 +215,26 @@ void GuiWindow::initializeTuningControls() {
 
 void GuiWindow::initializeRefreshRateControls() {
     ui->m_hwRefreshSlider->setRange(100, 5000);
-    ui->m_hwRefreshSlider->setValue(m_refreshRate);
-    ui->m_hwRefreshValueLabel->setText(QString("%1 ms").arg(m_refreshRate));
-
     ui->m_fpsRefreshSlider->setRange(100, 5000);
-    ui->m_fpsRefreshSlider->setValue(m_refreshRateFPS);
-    ui->m_fpsRefreshValueLabel->setText(QString("%1 ms").arg(m_refreshRateFPS));
+
+    QSettings settings("AmdFanSensors", "AmdFanSensors");
+    int savedHwRate = settings.value("refreshRate", 1000).toInt();
+    int savedFpsRate = settings.value("refreshRateFPS", 1000).toInt();
+
+    // Use CLI-provided value when given; otherwise fall back to the saved value.
+    int hwRate = m_hwRateProvided ? m_refreshRateCliDefault : savedHwRate;
+    int fpsRate = m_fpsRateProvided ? m_refreshRateFpsCliDefault : savedFpsRate;
+
+    m_refreshRateCliDefault = hwRate;
+    m_refreshRateFpsCliDefault = fpsRate;
+    m_refreshRate = hwRate;
+    m_refreshRateFPS = fpsRate;
+
+    ui->m_hwRefreshSlider->setValue(hwRate);
+    ui->m_hwRefreshValueLabel->setText(QString("%1 ms").arg(hwRate));
+
+    ui->m_fpsRefreshSlider->setValue(fpsRate);
+    ui->m_fpsRefreshValueLabel->setText(QString("%1 ms").arg(fpsRate));
 
     connect(ui->m_hwRefreshSlider, &QSlider::valueChanged, this, &GuiWindow::onHwRefreshSliderChanged);
     connect(ui->m_fpsRefreshSlider, &QSlider::valueChanged, this, &GuiWindow::onFpsRefreshSliderChanged);
@@ -256,6 +271,10 @@ void GuiWindow::onApplyRefreshRateClicked() {
 
     m_refreshRateCliDefault = m_refreshRate;
     m_refreshRateFpsCliDefault = m_refreshRateFPS;
+
+    QSettings settings("AmdFanSensors", "AmdFanSensors");
+    settings.setValue("refreshRate", m_refreshRate);
+    settings.setValue("refreshRateFPS", m_refreshRateFPS);
 
     updateRefreshApplyButtonEnabled();
     setWindowTitle(QString("AMD GPU Monitor (Qt 6.7) - -a=%1 -A=%2").arg(m_refreshRate).arg(m_refreshRateFPS));

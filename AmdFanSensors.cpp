@@ -30,6 +30,8 @@ int main(int argc, char* argv[]) {
 		int refreshRateFPSMs = 1000;
 		bool fpsOnly = false;
 		bool detach = false;
+		bool refreshRateCliProvided = false;
+		bool refreshRateFpsCliProvided = false;
 
 		adlx_int voltageOffset = 0;
 
@@ -70,6 +72,7 @@ int main(int argc, char* argv[]) {
 				}
 				defaultMode = false;
 				enableGui = true;
+				refreshRateCliProvided = true;
 			}
 			else if (arg == "--refresh-rate-fps" || arg == "-A=" || arg.substr(0, 3) == "-A=" || arg.substr(0, 19) == "--refresh-rate-fps=") {
 				if (! validateRefreshRate(refreshRateFPSMs, arg)) {
@@ -77,6 +80,7 @@ int main(int argc, char* argv[]) {
 				}
 				defaultMode = false;
 				enableGui = true;
+				refreshRateFpsCliProvided = true;
 			}
 			else if (arg == "--fps-only" || arg == "-u") { fpsOnly = true; defaultMode = false; enableGui = true;}
 			else if (arg == "--detach" || arg == "-D") { defaultMode = false; enableGui = true; detach = true; }
@@ -161,7 +165,7 @@ int main(int argc, char* argv[]) {
 				}
 			}
 			QApplication app(argc, argv);
-			GuiWindow guiWindow(manager, refreshRateMs, refreshRateFPSMs, fpsOnly);
+			GuiWindow guiWindow(manager, refreshRateMs, refreshRateFPSMs, fpsOnly, refreshRateCliProvided, refreshRateFpsCliProvided);
 			if (guiWindow.OpenWin()) {
 				int res = app.exec();
 				return res;
