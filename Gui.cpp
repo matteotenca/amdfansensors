@@ -34,6 +34,30 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
     m_curvePlot->setMinimumHeight(150);
     m_curvePlot->setPoints(m_manager.GetFanCurvePoints());
 
+    // The custom-curve preview stash: what re-checking the box shows before Apply.
+    // Seeds from the GPU when it holds a custom curve, otherwise from saved prefs.
+    m_stashedCustomPoints = m_manager.IsDefaultFanCurve(m_curvePlot->points())
+                                ? LoadSavedCurvePoints()
+                                : m_curvePlot->points();
+
+    int minTemp = 0, maxTemp = 100, minSpeed = 0, maxSpeed = 100;
+    m_manager.GetFanRanges(minTemp, maxTemp, minSpeed, maxSpeed);
+    m_curvePlot->setRanges(minTemp, maxTemp, minSpeed, maxSpeed);
+    m_curvePlot->setEditable(ui->m_fanCurveCheckbox->isChecked());
+    connect(m_curvePlot, &CurvePlotWidget::pointsChanged, this, &GuiWindow::onCurveEdited);
+    connect(ui->m_fanCurveCheckbox, &QCheckBox::toggled, this, [this](bool checked) {
+        m_curvePlot->setEditable(checked);
+        if (checked) {
+            // Re-checking restores the custom-curve preview; nothing touches the GPU.
+            if (!m_stashedCustomPoints.empty())
+                m_curvePlot->setPoints(m_stashedCustomPoints);
+        } else {
+            // Unchecking previews the default curve; the custom one is stashed.
+            m_stashedCustomPoints = m_curvePlot->points();
+            m_curvePlot->setPoints(m_manager.GetDefaultFanCurvePoints());
+        }
+    });
+
     ui->controlLayout->activate();
     ui->m_controlGroup->update();
 
@@ -182,6 +206,16 @@ void GuiWindow::initializeTuningControls() {
     ui->m_fanCurveCheckbox->setChecked(!isFanCurveDefaultOne);
     m_baseFanCurve = !isFanCurveDefaultOne;
 
+    // Startup sync: when a custom curve is active on the GPU and differs from the
+    // saved prefs, the GPU curve wins and prefs are refreshed to match it.
+    if (!isFanCurveDefaultOne) {
+        const auto gpuPoints = m_curvePlot->points();
+        if (LoadSavedCurvePoints() != gpuPoints) {
+            SaveCurvePoints(gpuPoints);
+            std::cout << "Synced saved custom fan curve with the GPU curve." << std::endl;
+        }
+    }
+
     try {
         adlx_int currentOffset = m_manager.GetVoltageOffset();
         if (currentOffset != 0) {
@@ -295,7 +329,12 @@ void GuiWindow::updateApplyButtonEnabled() const {
     bool fanCurveChanged = ui->m_fanCurveCheckbox->isChecked() != m_baseFanCurve;
     bool voltageChanged = ui->m_voltageSpinBox->value() != m_baseVoltage;
 
-    ui->m_applyTuningButton->setEnabled(zeroRpmChanged || fanCurveChanged || voltageChanged);
+    ui->m_applyTuningButton->setEnabled(zeroRpmChanged || fanCurveChanged || voltageChanged || m_curveEdited);
+}
+
+void GuiWindow::onCurveEdited() {
+    m_curveEdited = true;
+    updateApplyButtonEnabled();
 }
 
 void GuiWindow::onApplyTuningClicked() {
@@ -306,7 +345,14 @@ void GuiWindow::onApplyTuningClicked() {
         }
 
         bool customFan = ui->m_fanCurveCheckbox->isChecked();
-        m_manager.ShowGetAndSetFan(true, !customFan);
+        bool curveApplied = false;
+        if (customFan) {
+            curveApplied = m_manager.SetFanCurvePoints(m_curvePlot->points());
+        } else {
+            // Unchecked: apply the default curve to the GPU. The saved custom
+            // curve in prefs is retained for future re-use.
+            curveApplied = m_manager.SetFanCurvePoints(m_manager.GetDefaultFanCurvePoints());
+        }
 
         adlx_int voltOffset = 0;
         if (ui->m_voltageOffsetCheckbox->isChecked()) {
@@ -317,11 +363,19 @@ void GuiWindow::onApplyTuningClicked() {
         m_baseZeroRpm = ui->m_zeroRpmCheckbox->isChecked();
         m_baseFanCurve = ui->m_fanCurveCheckbox->isChecked();
         m_baseVoltage = voltOffset;
+        m_curveEdited = false;
 
         std::cout << "Applied settings: ZeroRPM=" << ui->m_zeroRpmCheckbox->isChecked()
                   << ", CustomFan=" << customFan
                   << ", VoltageOffset=" << voltOffset << " mV" << std::endl;
-        m_curvePlot->setPoints(m_manager.GetFanCurvePoints());
+        const auto gpuPoints = m_manager.GetFanCurvePoints();
+        m_curvePlot->setPoints(gpuPoints);
+        if (!m_manager.IsDefaultFanCurve(gpuPoints)) {
+            m_stashedCustomPoints = gpuPoints;
+        }
+        if (customFan && curveApplied) {
+            SaveCurvePoints(gpuPoints);
+        }
         updateApplyButtonEnabled();
 
         ui->m_applyTuningButton->setText("Applied!");
@@ -364,4 +418,46 @@ void GuiWindow::onHardwareStatsToggled(bool enabled) const {
         ui->m_gpuUsageLabel->setText("GPU Usage: --%");
         ui->gpuUsageProgressBar->setValue(0);
     }
+}
+
+void GuiWindow::SaveCurvePoints(const std::vector<std::pair<int, int>>& points) const {
+    if (points.empty()) return;
+    // Preferences must only ever hold a custom curve; never persist the default one.
+    if (m_manager.IsDefaultFanCurve(points)) return;
+
+    QVariantList temps;
+    QVariantList speeds;
+    for (const auto& p : points) {
+        temps << p.first;
+        speeds << p.second;
+    }
+
+    QSettings settings("AmdFanSensors", "AmdFanSensors");
+    settings.setValue("fanCurveTemps", temps);
+    settings.setValue("fanCurveSpeeds", speeds);
+}
+
+std::vector<std::pair<int, int>> GuiWindow::LoadSavedCurvePoints() const {
+    std::vector<std::pair<int, int>> points;
+
+    QSettings settings("AmdFanSensors", "AmdFanSensors");
+    if (!settings.contains("fanCurveTemps") || !settings.contains("fanCurveSpeeds"))
+        return points;
+
+    const QVariantList temps = settings.value("fanCurveTemps").toList();
+    const QVariantList speeds = settings.value("fanCurveSpeeds").toList();
+    if (temps.isEmpty() || temps.size() != speeds.size())
+        return points;
+
+    points.reserve(temps.size());
+    for (int i = 0; i < temps.size(); ++i) {
+        bool okT = false, okS = false;
+        const int t = temps[i].toInt(&okT);
+        const int s = speeds[i].toInt(&okS);
+        if (!okT || !okS) return {};
+        points.emplace_back(t, s);
+    }
+    // A default-looking curve in prefs is stale data, not a custom curve: ignore it.
+    if (m_manager.IsDefaultFanCurve(points)) return {};
+    return points;
 }

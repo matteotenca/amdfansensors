@@ -262,41 +262,7 @@ void GpuManager::ShowGetAndSetFan(bool setRamp, bool defaultRamp) {
     const int* temps = defaultRamp ? m_defaultTemps : my_temps;
 
     if (setRamp) {
-        res = m_manualFanTuning->GetEmptyFanTuningStates(&states);
-        if (ADLX_SUCCEEDED(res)) {
-            for (adlx_uint crt = states->Begin(); crt != states->End(); ++crt) {
-                res = states->At(crt, &oneState);
-                cleanUp(res);
-                adlx_int speed = 0, temperature = 0;
-                res = oneState->SetFanSpeed(speeds[crt]);
-
-                if (ADLX_RESET_NEEDED == res) {
-                    std::cerr << "RESETTING RAMP TO FACTORY!" << std::endl;
-                    res = m_gpuTuningService->ResetToFactory(m_oneGPU);
-                    if (ADLX_SUCCEEDED(res)) oneState->SetFanSpeed(speeds[crt]);
-                }
-                else if (ADLX_FAILED(res)) {
-                    std::cout << "State " << crt << ": error setting speed" << std::endl;
-                    return;
-                }
-
-                res = oneState->GetFanSpeed(&speed);
-                cleanUp(res);
-                res = oneState->SetTemperature(temps[crt]);
-                if (res == ADLX_FAIL) return;
-                res = oneState->GetTemperature(&temperature);
-                cleanUp(res);
-                std::cout << "Set empty " << crt << " state: speed is " << speed << " temperature is " << temperature <<
-                    std::endl;
-            }
-        }
-
-        adlx_int errorIndex;
-        res = m_manualFanTuning->IsValidFanTuningStates(states, &errorIndex);
-        std::cout << "IsValidGPUTuningStates, errorIndex is: " << errorIndex << std::endl;
-        if (ADLX_SUCCEEDED(res)) {
-            m_manualFanTuning->SetFanTuningStates(states);
-        }
+        ApplyFanTuningStates(speeds, temps, 5);
 
         res = m_manualFanTuning->GetFanTuningStates(&states);
         if (ADLX_SUCCEEDED(res)) {
@@ -505,6 +471,126 @@ std::vector<std::pair<int, int>> GpuManager::GetFanCurvePoints() {
     }
     catch (...) {
         std::cerr << "[GpuManager] GetFanCurvePoints: unknown error" << std::endl;
+    }
+    return points;
+}
+
+bool GpuManager::GetFanRanges(int& minTemp, int& maxTemp, int& minSpeed, int& maxSpeed) const {
+    try {
+        if (!m_manualFanTuning) {
+            GpuManager* self = const_cast<GpuManager*>(this);
+            self->EnsureFanTuning();
+        }
+        if (!m_manualFanTuning) return false;
+
+        ADLX_IntRange fanSpeedRange, fanTemperatureRange;
+        ADLX_RESULT res = m_manualFanTuning->GetFanTuningRanges(&fanSpeedRange, &fanTemperatureRange);
+        if (ADLX_FAILED(res)) return false;
+
+        minTemp = (int)fanTemperatureRange.minValue;
+        maxTemp = (int)fanTemperatureRange.maxValue;
+        minSpeed = (int)fanSpeedRange.minValue;
+        maxSpeed = (int)fanSpeedRange.maxValue;
+        return true;
+    }
+    catch (const std::exception& e) {
+        std::cerr << "[GpuManager] GetFanRanges: " << e.what() << std::endl;
+    }
+    catch (...) {
+        std::cerr << "[GpuManager] GetFanRanges: unknown error" << std::endl;
+    }
+    return false;
+}
+
+bool GpuManager::ApplyFanTuningStates(const adlx_int* speeds, const adlx_int* temps, adlx_uint count) {
+    EnsureFanTuning();
+    ADLX_IntRange fanSpeedRange, fanTemperatureRange;
+    ADLX_RESULT res = m_manualFanTuning->GetFanTuningRanges(&fanSpeedRange, &fanTemperatureRange);
+    cleanUp(res);
+
+    IADLXManualFanTuningStateListPtr states;
+    res = m_manualFanTuning->GetEmptyFanTuningStates(&states);
+    if (ADLX_FAILED(res)) {
+        std::cerr << "Failed to get empty fan tuning states" << std::endl;
+        return false;
+    }
+
+    adlx_uint total = states->Size();
+    adlx_uint n = (count < total ? count : total);
+    for (adlx_uint crt = 0; crt < n; ++crt) {
+        IADLXManualFanTuningStatePtr oneState;
+        res = states->At(crt, &oneState);
+        if (ADLX_FAILED(res)) continue;
+
+        adlx_int speed = speeds[crt];
+        adlx_int temperature = temps[crt];
+        if (speed < fanSpeedRange.minValue) speed = fanSpeedRange.minValue;
+        if (speed > fanSpeedRange.maxValue) speed = fanSpeedRange.maxValue;
+        if (temperature < fanTemperatureRange.minValue) temperature = fanTemperatureRange.minValue;
+        if (temperature > fanTemperatureRange.maxValue) temperature = fanTemperatureRange.maxValue;
+
+        res = oneState->SetFanSpeed(speed);
+        if (ADLX_RESET_NEEDED == res) {
+            std::cerr << "RESETTING RAMP TO FACTORY!" << std::endl;
+            res = m_gpuTuningService->ResetToFactory(m_oneGPU);
+            if (ADLX_SUCCEEDED(res)) oneState->SetFanSpeed(speed);
+        }
+        else if (ADLX_FAILED(res)) {
+            std::cout << "State " << crt << ": error setting speed" << std::endl;
+            return false;
+        }
+
+        res = oneState->SetTemperature(temperature);
+        if (res == ADLX_FAIL) return false;
+    }
+
+    adlx_int errorIndex;
+    res = m_manualFanTuning->IsValidFanTuningStates(states, &errorIndex);
+    std::cout << "IsValidFanTuningStates, errorIndex is: " << errorIndex << std::endl;
+    if (ADLX_SUCCEEDED(res)) {
+        res = m_manualFanTuning->SetFanTuningStates(states);
+        return ADLX_SUCCEEDED(res);
+    }
+    return false;
+}
+
+bool GpuManager::SetFanCurvePoints(const std::vector<std::pair<int, int>>& points) {
+    try {
+        if (points.empty()) return false;
+
+        std::vector<adlx_int> speeds(points.size());
+        std::vector<adlx_int> temps(points.size());
+        for (size_t i = 0; i < points.size(); ++i) {
+            speeds[i] = (adlx_int)points[i].second;
+            temps[i] = (adlx_int)points[i].first;
+        }
+        return ApplyFanTuningStates(speeds.data(), temps.data(), (adlx_uint)points.size());
+    }
+    catch (const std::exception& e) {
+        std::cerr << "[GpuManager] SetFanCurvePoints: " << e.what() << std::endl;
+    }
+    catch (...) {
+        std::cerr << "[GpuManager] SetFanCurvePoints: unknown error" << std::endl;
+    }
+    return false;
+}
+
+bool GpuManager::IsDefaultFanCurve(const std::vector<std::pair<int, int>>& points) const {
+    constexpr int pointCount = sizeof(m_defaultSpeeds) / sizeof(m_defaultSpeeds[0]);
+    if ((int)points.size() != pointCount) return false;
+    for (int i = 0; i < pointCount; ++i) {
+        if (points[i].first != m_defaultTemps[i] || points[i].second != m_defaultSpeeds[i])
+            return false;
+    }
+    return true;
+}
+
+std::vector<std::pair<int, int>> GpuManager::GetDefaultFanCurvePoints() const {
+    constexpr int pointCount = sizeof(m_defaultSpeeds) / sizeof(m_defaultSpeeds[0]);
+    std::vector<std::pair<int, int>> points;
+    points.reserve(pointCount);
+    for (int i = 0; i < pointCount; ++i) {
+        points.emplace_back(m_defaultTemps[i], m_defaultSpeeds[i]);
     }
     return points;
 }

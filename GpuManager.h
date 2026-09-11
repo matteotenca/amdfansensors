@@ -199,6 +199,10 @@ public:
     adlx_int GetVoltageOffset() const; // NEW: Getter for voltage offset
     bool GetVoltageOffsetRange(adlx_int& minVolt, adlx_int& maxVolt) const;
     std::vector<std::pair<int, int>> GetFanCurvePoints();
+    bool SetFanCurvePoints(const std::vector<std::pair<int, int>>& points);
+    bool IsDefaultFanCurve(const std::vector<std::pair<int, int>>& points) const;
+    std::vector<std::pair<int, int>> GetDefaultFanCurvePoints() const;
+    bool GetFanRanges(int& minTemp, int& maxTemp, int& minSpeed, int& maxSpeed) const;
 
 private:
     // Pointers are mutable to allow lazy-loading initialization within const methods
@@ -219,6 +223,7 @@ private:
     void EnsureTuningService() const;
     void EnsureFanTuning();
     void EnsureGfxTuning() const;
+    bool ApplyFanTuningStates(const adlx_int* speeds, const adlx_int* temps, adlx_uint count);
     IADLXGPUMetricsPtr GetCurrentGpuMetrics() const;
     void EnsureSystemMetricsSupport() const;
     IADLXSystemMetricsPtr GetCurrentSystemMetrics() const;
