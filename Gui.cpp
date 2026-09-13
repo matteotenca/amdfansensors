@@ -31,7 +31,7 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
     // Initialize Curve Plot Widget
     m_curvePlot = new CurvePlotWidget(this);
     ui->controlLayout->addWidget(m_curvePlot, 3, 0, 1, 2);
-    m_curvePlot->setMinimumHeight(150);
+    m_curvePlot->setMinimumHeight(160);
     m_curvePlot->setPoints(m_manager.GetFanCurvePoints());
 
     // Let the curve section grow with the window; keep other sections fixed.

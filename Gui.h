@@ -70,7 +70,7 @@ protected:
         if (m_points.empty()) return;
 
         // Padding and effective area
-        const float padding = 25.0f;
+        const float padding = kPadding;
         float effectiveWidth = width() - (padding * 2);
         float effectiveHeight = height() - (padding * 2);
 
@@ -106,13 +106,13 @@ protected:
 
         painter.drawText(rect(), Qt::AlignBottom | Qt::AlignHCenter, "Temp (°C)");
         painter.save();
-        painter.translate(padding / 2, height() / 2);
+        painter.translate(11.0f, height() / 2);
         painter.rotate(-90);
         // Draw the vertical label centered on the rotated origin using font metrics
         const QString fanLabel = "Fan (%)";
         const QFontMetrics fm(labelFont);
         painter.drawText(-fm.horizontalAdvance(fanLabel) / 2.0,
-                         (fm.descent() - fm.ascent()) / 2.0,
+                         (fm.ascent() - fm.descent()) / 2.0,
                          fanLabel);
         painter.restore();
 
@@ -229,7 +229,7 @@ protected:
     }
 
     void toPixel(float temp, float speed, float& x, float& y) const {
-        const float padding = 25.0f;
+        const float padding = kPadding;
         float effectiveWidth = width() - (padding * 2);
         float effectiveHeight = height() - (padding * 2);
         x = padding + ((float)(temp - m_minTemp) / (float)(m_maxTemp - m_minTemp) * effectiveWidth);
@@ -237,7 +237,7 @@ protected:
     }
 
     void toValue(const QPoint& pos, float& temp, float& speed) const {
-        const float padding = 25.0f;
+        const float padding = kPadding;
         float effectiveWidth = width() - (padding * 2);
         float effectiveHeight = height() - (padding * 2);
         float nx = (pos.x() - padding) / effectiveWidth;
@@ -261,6 +261,8 @@ protected:
     }
 
 private:
+    static constexpr float kPadding = 40.0f;
+
     static float niceStep(float range) {
         const float raw = range / 6.0f;
         const float magnitude = std::pow(10.0f, std::floor(std::log10(raw)));
