@@ -34,6 +34,16 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
     m_curvePlot->setMinimumHeight(150);
     m_curvePlot->setPoints(m_manager.GetFanCurvePoints());
 
+    // Let the curve section grow with the window; keep other sections fixed.
+    ui->controlLayout->setRowStretch(3, 1);
+    ui->m_mainLayout->setStretch(0, 0);
+    ui->m_mainLayout->setStretch(1, 1);
+    ui->m_mainLayout->setStretch(2, 0);
+    ui->m_mainLayout->setStretch(3, 0);
+    ui->m_hardwareGroup->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    ui->m_fpsGroup->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+    ui->m_refreshRateGroup->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+
     // The custom-curve preview stash: what re-checking the box shows before Apply.
     // Seeds from the GPU when it holds a custom curve, otherwise from saved prefs.
     m_stashedCustomPoints = m_manager.IsDefaultFanCurve(m_curvePlot->points())
@@ -42,7 +52,10 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
 
     int minTemp = 0, maxTemp = 100, minSpeed = 0, maxSpeed = 100;
     m_manager.GetFanRanges(minTemp, maxTemp, minSpeed, maxSpeed);
+    const int dragMinSpeed = minSpeed;   // GPU's real minimum, kept for dragging
+    minSpeed = 0;                        // display axis starts at 0%
     m_curvePlot->setRanges(minTemp, maxTemp, minSpeed, maxSpeed);
+    m_curvePlot->setDragSpeedRange(dragMinSpeed, maxSpeed);
     m_curvePlot->setEditable(ui->m_fanCurveCheckbox->isChecked());
     connect(m_curvePlot, &CurvePlotWidget::pointsChanged, this, &GuiWindow::onCurveEdited);
     connect(ui->m_fanCurveCheckbox, &QCheckBox::toggled, this, [this](bool checked) {
@@ -110,6 +123,7 @@ void GuiWindow::updateHardwareMetrics() const {
 
     ui->m_fanLabel->setText(QString("Fan Speed: %1 RPM (%2%)").arg(info.fanSpeed).arg(info.fanPercent));
     ui->m_fanBar->setValue(info.fanPercent);
+    m_curvePlot->setCurrentPoint(info.gpuHotspotTemperatureC, info.fanPercent);
 
     ui->m_memoryLabel->setText(QString("GPU Memory Usage: %1 MB/%2 MB - Free %3 MB - %4% Used")
                        .arg(info.vRam)
@@ -403,6 +417,7 @@ void GuiWindow::onMonitoringToggled(bool enabled) const {
 void GuiWindow::onHardwareStatsToggled(bool enabled) const {
     if (enabled && !m_fpsOnlyMode) {
         m_metricsTimer->start(m_refreshRate);
+        m_curvePlot->setCurrentPointVisible(true);
     } else {
         m_metricsTimer->stop();
         ui->m_gpuTempLabel->setText("GPU: --°C");
@@ -417,6 +432,7 @@ void GuiWindow::onHardwareStatsToggled(bool enabled) const {
         ui->m_memoryBar->setValue(0);
         ui->m_gpuUsageLabel->setText("GPU Usage: --%");
         ui->gpuUsageProgressBar->setValue(0);
+        m_curvePlot->setCurrentPointVisible(false);
     }
 }
 

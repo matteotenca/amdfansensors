@@ -33,8 +33,25 @@ public:
         m_minSpeed = minSpeed; m_maxSpeed = maxSpeed;
     }
 
+    void setDragSpeedRange(int minDragSpeed, int maxDragSpeed) {
+        m_minDragSpeed = minDragSpeed;
+        m_maxDragSpeed = maxDragSpeed;
+    }
+
     void setEditable(bool editable) {
         m_editable = editable;
+        update();
+    }
+
+    void setCurrentPoint(double temp, int fan) {
+        m_currentTemp = temp;
+        m_currentFan = fan;
+        m_showCurrentPoint = true;
+        update();
+    }
+
+    void setCurrentPointVisible(bool visible) {
+        m_showCurrentPoint = visible;
         update();
     }
 
@@ -65,6 +82,22 @@ protected:
         // Y axis shifted to left padding
         painter.drawLine(padding, padding, padding, height() - padding);
 
+        // Gridlines & tick positions (adaptive)
+        const auto tempTicks = computeTicks((float)m_minTemp, (float)m_maxTemp);
+        const auto fanTicks = computeTicks((float)m_minSpeed, (float)m_maxSpeed);
+        QPen gridPen(QColor(49, 50, 68, 140), 1, Qt::SolidLine); // #313244 @ 55%
+        painter.setPen(gridPen);
+        for (float t : tempTicks) {
+            float gx, gy;
+            toPixel(t, (float)m_minSpeed, gx, gy);
+            painter.drawLine(QPointF(gx, padding), QPointF(gx, height() - padding));
+        }
+        for (float s : fanTicks) {
+            float gx, gy;
+            toPixel((float)m_minTemp, s, gx, gy);
+            painter.drawLine(QPointF(padding, gy), QPointF(width() - padding, gy));
+        }
+
         // Legend - Labels
         painter.setPen(QPen(QColor("#BAC2DE"), 1));
         QFont labelFont = painter.font();
@@ -82,6 +115,22 @@ protected:
                          (fm.descent() - fm.ascent()) / 2.0,
                          fanLabel);
         painter.restore();
+
+        // X-axis tick labels (below plot area in bottom padding)
+        painter.setPen(QPen(QColor("#BAC2DE"), 1));
+        for (float t : tempTicks) {
+            float gx, gy;
+            toPixel(t, (float)m_minSpeed, gx, gy);
+            painter.drawText(QPointF(gx - 10, height() - padding + 12), QString::number((int)std::lround(t)));
+        }
+        // Y-axis tick labels (left of plot area in left padding)
+        for (float s : fanTicks) {
+            float gx, gy;
+            toPixel((float)m_minTemp, s, gx, gy);
+            const QString stxt = QString::number((int)std::lround(s));
+            const QFontMetrics fm2(labelFont);
+            painter.drawText(QPointF(padding - 3 - fm2.horizontalAdvance(stxt), gy + 3), stxt);
+        }
 
         // Draw Curve
         QPen curvePen(QColor("#89DCEB"), 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
@@ -117,6 +166,26 @@ protected:
             float textY = y;
             painter.drawText(textX, textY, label);
         }
+
+        // Live operating-point marker
+        if (m_showCurrentPoint) {
+            float mx, my;
+            toPixel((float)m_currentTemp, (float)m_currentFan, mx, my);
+            // Clamp marker to the plot area to avoid drawing outside the axis.
+            mx = std::clamp(mx, padding, width() - padding);
+            my = std::clamp(my, padding, height() - padding);
+
+            QPen ringPen(QColor("#F38BA8"), 2, Qt::SolidLine, Qt::RoundCap);
+            painter.setPen(ringPen);
+            painter.setBrush(Qt::NoBrush);
+            painter.drawEllipse(QPointF(mx, my), 6, 6);
+
+            // Small label beside the marker
+            painter.setPen(QPen(QColor("#F38BA8"), 1));
+            painter.setFont(labelFont);
+            painter.drawText(QPointF(mx + 10, my - 10),
+                             QString("%1°C / %2%").arg((int)std::lround(m_currentTemp)).arg(m_currentFan));
+        }
     }
 
     void mousePressEvent(QMouseEvent* event) override {
@@ -141,7 +210,7 @@ protected:
             maxT = std::min(maxT, m_points[m_dragIndex + 1].first);
 
         newTemp = std::clamp(newTemp, minT, maxT);
-        newSpeed = std::clamp(newSpeed, m_minSpeed, m_maxSpeed);
+        newSpeed = std::clamp(newSpeed, m_minDragSpeed, m_maxDragSpeed);
 
         if (p.first != newTemp || p.second != newSpeed) {
             p.first = newTemp;
@@ -192,13 +261,47 @@ protected:
     }
 
 private:
+    static float niceStep(float range) {
+        const float raw = range / 6.0f;
+        const float magnitude = std::pow(10.0f, std::floor(std::log10(raw)));
+        const float norm = raw / magnitude;
+        float mult;
+        if (norm < 1.5f) mult = 1.0f;
+        else if (norm < 3.5f) mult = 2.0f;
+        else if (norm < 7.5f) mult = 5.0f;
+        else mult = 10.0f;
+        return mult * magnitude;
+    }
+
+    static std::vector<float> computeTicks(float min, float max) {
+        std::vector<float> ticks;
+        if (max < min) return ticks;
+        const float range = max - min;
+        if (range <= 0.0f) { ticks.push_back(min); return ticks; }
+        float step = niceStep(range);
+        // First tick aligned to a multiple of step >= min
+        float first = std::floor(min / step) * step;
+        if (first < min) first += step;
+        const int maxCount = 12;
+        for (float v = first; v <= max + step && (int)ticks.size() < maxCount; v += step) {
+            if (v >= min - step * 0.5f && v <= max + step * 0.5f)
+                ticks.push_back(v);
+        }
+        return ticks;
+    }
+
     std::vector<std::pair<int, int>> m_points;
     int m_minTemp = 25;
     int m_maxTemp = 100;
     int m_minSpeed = 0;
     int m_maxSpeed = 100;
+    int m_minDragSpeed = 0;
+    int m_maxDragSpeed = 100;
     bool m_editable = false;
     int m_dragIndex = -1;
+    double m_currentTemp = 0.0;
+    int m_currentFan = 0;
+    bool m_showCurrentPoint = false;
 };
 
 class GuiWindow : public QMainWindow {
