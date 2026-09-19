@@ -103,8 +103,6 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
         ui->m_hwRefreshSlider->setEnabled(false);
         ui->m_hwRefreshValueLabel->setEnabled(false);
     }
-
-    setWindowTitle(QString("AMD GPU Monitor (Qt 6.7) - -a=%1 -A=%2").arg(m_refreshRate).arg(m_refreshRateFPS));
 }
 
 GuiWindow::~GuiWindow() {
@@ -344,7 +342,6 @@ void GuiWindow::onApplyRefreshRateClicked() {
     settings.setValue("refreshRateFPS", m_refreshRateFPS);
 
     updateRefreshApplyButtonEnabled();
-    setWindowTitle(QString("AMD GPU Monitor (Qt 6.7) - -a=%1 -A=%2").arg(m_refreshRate).arg(m_refreshRateFPS));
 }
 
 void GuiWindow::onVoltageOffsetToggled(bool checked) const {
