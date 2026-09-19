@@ -9,6 +9,11 @@
 #include <QWidget>
 #include <QPainter>
 #include <QMouseEvent>
+#include <QGroupBox>
+#include <QToolButton>
+#include <QSettings>
+#include <QLayout>
+#include <QBoxLayout>
 #include <cmath>
 #include <algorithm>
 #include <vector>
@@ -304,6 +309,109 @@ private:
     double m_currentTemp = 0.0;
     int m_currentFan = 0;
     bool m_showCurrentPoint = false;
+};
+
+class CollapsibleGroupBox : public QGroupBox {
+    Q_OBJECT
+public:
+    explicit CollapsibleGroupBox(QWidget* parent = nullptr) : QGroupBox(parent) { initToggle(); }
+    explicit CollapsibleGroupBox(const QString& title, QWidget* parent = nullptr) : QGroupBox(title, parent) { initToggle(); }
+
+    void setCollapsed(bool collapsed) {
+        if (m_collapsed == collapsed) return;
+        m_collapsed = collapsed;
+        m_toggle->setText(collapsed ? QString::fromUtf8("\u25B2") : QString::fromUtf8("\u25BC"));
+        if (collapsed) {
+            setMaximumHeight(titleBandHeight());
+            setChildrenVisible(false);
+        } else {
+            setChildrenVisible(true);
+            setMaximumHeight(QWIDGETSIZE_MAX);
+            updateGeometry();
+        }
+        resizeTopLevel();
+    }
+
+    bool isCollapsed() const { return m_collapsed; }
+
+protected:
+    void resizeEvent(QResizeEvent* event) override {
+        QGroupBox::resizeEvent(event);
+        positionToggle();
+        if (m_collapsed) setMaximumHeight(titleBandHeight());
+    }
+
+    void mousePressEvent(QMouseEvent* event) override {
+        if (event->button() == Qt::LeftButton && event->pos().y() < titleBandHeight()) {
+            toggleCollapsed();
+            event->accept();
+            return;
+        }
+        QGroupBox::mousePressEvent(event);
+    }
+
+private:
+    void initToggle() {
+        m_toggle = new QToolButton(this);
+        m_toggle->setAutoRaise(true);
+        m_toggle->setFixedSize(18, 18);
+        m_toggle->setText(QString::fromUtf8("\u25BC"));
+        m_toggle->setCursor(Qt::PointingHandCursor);
+        m_toggle->setToolTip("Collapse / expand");
+        connect(m_toggle, &QToolButton::clicked, this, [this]() { toggleCollapsed(); });
+    }
+
+    void toggleCollapsed() {
+        setCollapsed(!m_collapsed);
+        QSettings s("AmdFanSensors", "AmdFanSensors");
+        s.setValue(QString("collapsedGroup/%1").arg(objectName()), m_collapsed);
+    }
+
+    void setChildrenVisible(bool visible) {
+        const auto children = findChildren<QWidget*>();
+        for (QWidget* w : children)
+            if (w != m_toggle)
+                w->setVisible(visible);
+    }
+
+    void resizeTopLevel() {
+        if (!isVisible()) return;
+        if (QMainWindow* mw = qobject_cast<QMainWindow*>(window())) {
+            QWidget* cw = mw->centralWidget();
+            if (auto* bl = cw ? qobject_cast<QBoxLayout*>(cw->layout()) : nullptr) {
+                const auto settle = [this, mw, bl]() {
+                    QMargins mg = bl->contentsMargins();
+                    int h = mg.top() + mg.bottom();
+                    int visible = 0;
+                    for (int i = 0; i < bl->count(); ++i) {
+                        QLayoutItem* item = bl->itemAt(i);
+                        if (!item || item->isEmpty()) continue;
+                        ++visible;
+                        QWidget* w = item->widget();
+                        const int hint = w ? w->sizeHint().height() : item->sizeHint().height();
+                        const int hi = w ? w->maximumHeight() : QWIDGETSIZE_MAX;
+                        h += qBound(w ? w->minimumHeight() : 0, hint, hi);
+                    }
+                    if (visible > 1 && bl->spacing() >= 0)
+                        h += bl->spacing() * (visible - 1);
+                    if (h > 0)
+                        mw->resize(mw->width(), h);
+                };
+                QTimer::singleShot(0, this, settle);
+                QTimer::singleShot(90, this, settle);
+            }
+        }
+    }
+
+    void positionToggle() {
+        const int btnY = 12 + (fontMetrics().height() + 4 - m_toggle->height()) / 2;
+        m_toggle->move(width() - m_toggle->width() - 8, qMax(0, btnY));
+    }
+
+    int titleBandHeight() const { return fontMetrics().height() + 18; }
+
+    QToolButton* m_toggle = nullptr;
+    bool m_collapsed = false;
 };
 
 class GuiWindow : public QMainWindow {

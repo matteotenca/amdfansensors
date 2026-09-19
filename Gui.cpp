@@ -28,6 +28,24 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
     ui->m_enableHardwareStatsCheckbox->setChecked(true);
     connect(ui->m_enableHardwareStatsCheckbox, &QCheckBox::toggled, this, &GuiWindow::onHardwareStatsToggled);
 
+    QSettings settings("AmdFanSensors", "AmdFanSensors");
+    const bool stayOnTop = settings.value("stayOnTop", false).toBool();
+    ui->m_stayOnTopCheckbox->setChecked(stayOnTop);
+    setWindowFlag(Qt::WindowStaysOnTopHint, stayOnTop);
+    connect(ui->m_stayOnTopCheckbox, &QCheckBox::toggled, this, [this](bool checked) {
+        setWindowFlag(Qt::WindowStaysOnTopHint, checked);
+        show();
+        QSettings s("AmdFanSensors", "AmdFanSensors");
+        s.setValue("stayOnTop", checked);
+    });
+
+    // Restore saved collapsed states of the collapsible group boxes.
+    for (const QString& name : { QStringLiteral("m_hardwareGroup"), QStringLiteral("m_controlGroup"),
+                                 QStringLiteral("m_fpsGroup"), QStringLiteral("m_refreshRateGroup") }) {
+        if (auto* cgb = qobject_cast<CollapsibleGroupBox*>(findChild<QGroupBox*>(name)))
+            cgb->setCollapsed(settings.value("collapsedGroup/" + name, false).toBool());
+    }
+
     // Initialize Curve Plot Widget
     m_curvePlot = new CurvePlotWidget(this);
     ui->controlLayout->addWidget(m_curvePlot, 3, 0, 1, 2);
@@ -157,6 +175,7 @@ bool GuiWindow::OpenWin() {
         onMonitoringToggled(ui->m_enableMonitoringCheckbox->isChecked());
         onHardwareStatsToggled(ui->m_enableHardwareStatsCheckbox->isChecked());
         this->show();
+        this->adjustSize();
     }
     catch (const std::exception& e) {
         std::cerr << "Fatal Error: " << e.what() << std::endl;

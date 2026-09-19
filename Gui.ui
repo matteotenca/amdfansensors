@@ -306,7 +306,7 @@ QSpinBox:disabled {
      <number>16</number>
     </property>
     <item>
-     <widget class="QGroupBox" name="m_hardwareGroup">
+     <widget class="CollapsibleGroupBox" name="m_hardwareGroup">
       <property name="title">
        <string>Hardware Metrics</string>
       </property>
@@ -314,16 +314,23 @@ QSpinBox:disabled {
        <property name="spacing">
         <number>6</number>
        </property>
-       <item row="0" column="0" colspan="2">
-        <widget class="QCheckBox" name="m_enableHardwareStatsCheckbox">
-         <property name="text">
-          <string>Enable Hardware Stats Gathering</string>
-         </property>
-         <property name="checked">
-          <bool>true</bool>
-         </property>
-        </widget>
-       </item>
+<item row="0" column="0">
+         <widget class="QCheckBox" name="m_enableHardwareStatsCheckbox">
+          <property name="text">
+           <string>Enable Hardware Stats Gathering</string>
+          </property>
+          <property name="checked">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item row="0" column="1" alignment="Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter">
+         <widget class="QCheckBox" name="m_stayOnTopCheckbox">
+          <property name="text">
+           <string>Always on Top</string>
+          </property>
+         </widget>
+        </item>
        <item row="1" column="0">
         <widget class="QLabel" name="m_gpuTempLabel">
          <property name="font">
@@ -504,7 +511,7 @@ QSpinBox:disabled {
      </widget>
     </item>
     <item>
-     <widget class="QGroupBox" name="m_controlGroup">
+     <widget class="CollapsibleGroupBox" name="m_controlGroup">
       <property name="title">
        <string>GPU Tuning / Controls</string>
       </property>
@@ -589,7 +596,7 @@ QSpinBox:disabled {
      </widget>
     </item>
     <item>
-     <widget class="QGroupBox" name="m_fpsGroup">
+     <widget class="CollapsibleGroupBox" name="m_fpsGroup">
       <property name="title">
        <string>FPS</string>
       </property>
@@ -660,7 +667,7 @@ QSpinBox:disabled {
      </widget>
     </item>
     <item>
-     <widget class="QGroupBox" name="m_refreshRateGroup">
+     <widget class="CollapsibleGroupBox" name="m_refreshRateGroup">
       <property name="title">
        <string>Update Frequency</string>
       </property>
@@ -759,6 +766,13 @@ QSpinBox:disabled {
    </layout>
   </widget>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>CollapsibleGroupBox</class>
+   <extends>QGroupBox</extends>
+   <header>Gui.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
