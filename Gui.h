@@ -27,6 +27,8 @@ class CurvePlotWidget : public QWidget {
     Q_OBJECT
 public:
     explicit CurvePlotWidget(QWidget* parent = nullptr) : QWidget(parent) {}
+    enum Theme { Dark, Light };
+    void setTheme(Theme t) { m_theme = t; update(); }
     void setPoints(const std::vector<std::pair<int, int>>& points) {
         m_points = points;
         update();
@@ -70,7 +72,7 @@ protected:
         painter.setRenderHint(QPainter::Antialiasing);
 
         // Background
-        painter.fillRect(rect(), QColor("#181825"));
+        painter.fillRect(rect(), colorBg());
 
         if (m_points.empty()) return;
 
@@ -80,7 +82,7 @@ protected:
         float effectiveHeight = height() - (padding * 2);
 
         // Grid & Axes
-        QPen axisPen(QColor("#45475A"), 1, Qt::SolidLine);
+        QPen axisPen(colorAxis(), 1, Qt::SolidLine);
         painter.setPen(axisPen);
         // X axis shifted to bottom padding
         painter.drawLine(padding, height() - padding, width() - padding, height() - padding);
@@ -90,7 +92,7 @@ protected:
         // Gridlines & tick positions (adaptive)
         const auto tempTicks = computeTicks((float)m_minTemp, (float)m_maxTemp);
         const auto fanTicks = computeTicks((float)m_minSpeed, (float)m_maxSpeed);
-        QPen gridPen(QColor(49, 50, 68, 140), 1, Qt::SolidLine); // #313244 @ 55%
+        QPen gridPen(colorGrid(), 1, Qt::SolidLine);
         painter.setPen(gridPen);
         for (float t : tempTicks) {
             float gx, gy;
@@ -104,7 +106,7 @@ protected:
         }
 
         // Legend - Labels
-        painter.setPen(QPen(QColor("#BAC2DE"), 1));
+        painter.setPen(QPen(colorLabel(), 1));
         QFont labelFont = painter.font();
         labelFont.setPointSize(8);
         painter.setFont(labelFont);
@@ -122,7 +124,7 @@ protected:
         painter.restore();
 
         // X-axis tick labels (below plot area in bottom padding)
-        painter.setPen(QPen(QColor("#BAC2DE"), 1));
+        painter.setPen(QPen(colorLabel(), 1));
         for (float t : tempTicks) {
             float gx, gy;
             toPixel(t, (float)m_minSpeed, gx, gy);
@@ -138,7 +140,7 @@ protected:
         }
 
         // Draw Curve
-        QPen curvePen(QColor("#89DCEB"), 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
+        QPen curvePen(colorCurve(), 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin);
         painter.setPen(curvePen);
 
         QPolygonF polyline;
@@ -157,13 +159,13 @@ protected:
 
             // Marker
             painter.setBrush(QBrush(m_editable && static_cast<int>(i) == m_dragIndex
-                                        ? QColor("#F9E2AF")
-                                        : QColor("#89DCEB")));
+                                        ? colorMarkerActive()
+                                        : colorCurve()));
             painter.setPen(Qt::NoPen);
             painter.drawEllipse(QPointF(x, y), 4, 4);
 
             // Coordinate Text
-            painter.setPen(QPen(QColor("#CBA6F7"), 1));
+            painter.setPen(QPen(colorMarkerText(), 1));
             painter.setFont(labelFont);
             QString label = QString("%1°C / %2%").arg(p.first).arg(p.second);
 
@@ -180,13 +182,13 @@ protected:
             mx = std::clamp(mx, padding, width() - padding);
             my = std::clamp(my, padding, height() - padding);
 
-            QPen ringPen(QColor("#F38BA8"), 2, Qt::SolidLine, Qt::RoundCap);
+            QPen ringPen(colorRing(), 2, Qt::SolidLine, Qt::RoundCap);
             painter.setPen(ringPen);
             painter.setBrush(Qt::NoBrush);
             painter.drawEllipse(QPointF(mx, my), 6, 6);
 
             // Small label beside the marker
-            painter.setPen(QPen(QColor("#F38BA8"), 1));
+            painter.setPen(QPen(colorRing(), 1));
             painter.setFont(labelFont);
             painter.drawText(QPointF(mx + 10, my - 10),
                              QString("%1°C / %2%").arg((int)std::lround(m_currentTemp)).arg(m_currentFan));
@@ -268,6 +270,31 @@ protected:
 private:
     static constexpr float kPadding = 40.0f;
 
+    QColor colorBg() const {
+        return m_theme == Light ? QColor("#FFFFFF") : QColor("#181825");
+    }
+    QColor colorAxis() const {
+        return m_theme == Light ? QColor("#8A8CA0") : QColor("#45475A");
+    }
+    QColor colorGrid() const {
+        return m_theme == Light ? QColor(181, 183, 200, 150) : QColor(49, 50, 68, 140);
+    }
+    QColor colorLabel() const {
+        return m_theme == Light ? QColor("#5A5C6E") : QColor("#BAC2DE");
+    }
+    QColor colorCurve() const {
+        return m_theme == Light ? QColor("#0096B0") : QColor("#89DCEB");
+    }
+    QColor colorMarkerActive() const {
+        return m_theme == Light ? QColor("#D9A441") : QColor("#F9E2AF");
+    }
+    QColor colorMarkerText() const {
+        return m_theme == Light ? QColor("#7A3FA0") : QColor("#CBA6F7");
+    }
+    QColor colorRing() const {
+        return m_theme == Light ? QColor("#C94F8B") : QColor("#F38BA8");
+    }
+
     static float niceStep(float range) {
         const float raw = range / 6.0f;
         const float magnitude = std::pow(10.0f, std::floor(std::log10(raw)));
@@ -309,6 +336,7 @@ private:
     double m_currentTemp = 0.0;
     int m_currentFan = 0;
     bool m_showCurrentPoint = false;
+    Theme m_theme = Dark;
 };
 
 class CollapsibleGroupBox : public QGroupBox {
@@ -436,6 +464,7 @@ private slots:
     void onCurveEdited();
 
 private:
+    void setTheme(bool light);
     void initializeTuningControls();
     void initializeRefreshRateControls();
     void updateRefreshApplyButtonEnabled() const;
@@ -462,5 +491,6 @@ private:
 
     CurvePlotWidget* m_curvePlot;
     Ui::GuiWindow *ui;
+    QString m_darkStyleSheet;
 };
 #endif //AMDFANSENSORS_WINDOW_H

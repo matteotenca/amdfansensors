@@ -324,10 +324,17 @@ QSpinBox:disabled {
           </property>
          </widget>
         </item>
-        <item row="0" column="1" alignment="Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter">
-         <widget class="QCheckBox" name="m_stayOnTopCheckbox">
+         <item row="0" column="1" alignment="Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter">
+          <widget class="QCheckBox" name="m_stayOnTopCheckbox">
+           <property name="text">
+            <string>Always on Top</string>
+           </property>
+          </widget>
+         </item>
+        <item row="0" column="2">
+         <widget class="QCheckBox" name="m_lightThemeCheckbox">
           <property name="text">
-           <string>Always on Top</string>
+           <string>Light Theme</string>
           </property>
          </widget>
         </item>

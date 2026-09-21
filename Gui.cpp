@@ -9,11 +9,277 @@
 #include <QMessageBox>
 #include <QSettings>
 
+static const QString lightStyleSheet() {
+    return R"css(/* === Global Theme Variables === */
+QMainWindow {
+    background-color: #F3F4F9;
+}
+
+QWidget#GuiWindow {
+    background-color: #F3F4F9;
+}
+
+/* === Group Boxes === */
+QGroupBox {
+    font-weight: bold;
+    color: #2A2C3A;
+    border: 1px solid #C7C9D8;
+    border-radius: 2px;
+    margin-top: 15px;
+    padding-top: 16px;
+    background-color: #FFFFFF;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 14px;
+    padding: 0 6px;
+}
+
+/* === Section Headers (Hardware, Tuning, Performance) === */
+QGroupBox#m_hardwareGroup {
+    border-color: #9AA0B5;
+}
+
+QGroupBox#m_controlGroup {
+    border-color: #0096B0;
+}
+
+QGroupBox#m_fpsGroup {
+    border-color: #B8860B;
+}
+
+QGroupBox#m_refreshRateGroup {
+    border-color: #7A3FA0;
+}
+
+/* === Labels === */
+QLabel {
+    color: #33354A;
+    font-family: 'Segoe UI', 'Cascadia Code', 'Consolas';
+}
+
+QLabel#m_gpuTempLabel, QLabel#m_hotspotTempLabel, QLabel#m_memTempLabel {
+    color: #C16A00;
+    font-weight: 600;
+}
+
+QLabel#m_systemMemoryLabel {
+    color: #0096B0;
+    font-weight: 500;
+}
+
+QLabel#m_fanLabel {
+    color: #2E8B57;
+    font-weight: 500;
+}
+
+QLabel#m_memoryLabel, QLabel#m_statusLabel {
+    color: #B8860B;
+    font-weight: 500;
+}
+
+QLabel#m_gpuUsageLabel {
+    color: #0096B0;
+    font-weight: 600;
+}
+
+/* === FPS Labels === */
+QLabel#m_instantFpsLabel {
+    color: #2A2C3A;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+QLabel#m_avgFpsLabel, QLabel#m_minMaxFpsLabel {
+    color: #2E8B57;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+/* === Progress Bars === */
+QProgressBar {
+    border: none;
+    border-radius: 6px;
+    background-color: #E6E7F0;
+    height: 10px;
+    text-align: center;
+}
+
+QProgressBar#m_fanBar::chunk {
+    border-radius: 5px;
+    background: qlineargradient(spread:reflect, x1:0, y1:0, x2:1, y2:0, stop:0 #2E8B57, stop:1 #0096B0);
+}
+
+QProgressBar#m_memoryBar::chunk {
+    border-radius: 5px;
+    background: qlineargradient(spread:reflect, x1:0, y1:0, x2:1, y2:0, stop:0 #B8860B, stop:1 #C9528A);
+}
+
+QProgressBar#m_systemMemoryBar::chunk {
+    border-radius: 5px;
+    background: qlineargradient(spread:reflect, x1:0, y1:0, x2:1, y2:0, stop:0 #0096B0, stop:1 #0096B0);
+}
+
+QProgressBar#gpuUsageProgressBar::chunk {
+    border-radius: 5px;
+    background: qlineargradient(spread:reflect, x1:0, y1:0, x2:1, y2:0, stop:0 #C9528A, stop:1 #B8860B);
+}
+
+/* === Buttons === */
+QPushButton {
+    background-color: #E6E7F0;
+    color: #2A2C3A;
+    border: 1px solid #C7C9D8;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+QPushButton:hover {
+    background-color: #D3D5E2;
+    border-color: #0096B0;
+    color: #1A1C26;
+}
+
+QPushButton:pressed {
+    background-color: #C7C9D8;
+    color: #1A1C26;
+}
+
+QPushButton:disabled {
+    background-color: #EBECF3;
+    color: #9AA0B5;
+    border-color: #E6E7F0;
+}
+
+/* === Apply button special style === */
+QPushButton#m_applyTuningButton {
+    background-color: #0096B0;
+    color: #FFFFFF;
+    border: none;
+    font-weight: bold;
+    padding: 10px 16px;
+}
+
+QPushButton#m_applyTuningButton:hover {
+    background-color: #0096B0;
+    color: #FFFFFF;
+}
+
+QPushButton#m_applyTuningButton:pressed {
+    background-color: #00A38E;
+}
+
+QPushButton#m_applyTuningButton:disabled {
+    background-color: #E6E7F0;
+    color: #9AA0B5;
+}
+
+/* === Checkboxes === */
+QCheckBox {
+    color: #33354A;
+    font-weight: 500;
+    spacing: 8px;
+}
+
+QCheckBox::indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 4px;
+    border: 2px solid #9AA0B5;
+    background-color: #E6E7F0;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #0096B0;
+    border-color: #0096B0;
+}
+
+QCheckBox::indicator:hover {
+    border-color: #2A2C3A;
+}
+
+QCheckBox::indicator:disabled {
+    border-color: #E6E7F0;
+    background-color: #F3F4F9;
+}
+
+QCheckBox:disabled {
+    color: #9AA0B5;
+}
+
+/* === Slider === */
+QSlider::groove:horizontal {
+    border: none;
+    height: 6px;
+    background: #E6E7F0;
+    border-radius: 3px;
+    margin: 0;
+}
+
+QSlider::add-page:horizontal {
+    background: #E6E7F0;
+    border-radius: 3px;
+}
+
+QSlider::sub-page:horizontal {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #0096B0, stop:1 #0096B0);
+    border-radius: 3px;
+}
+
+QSlider::handle:horizontal {
+    width: 16px;
+    margin: -5px 0;
+    border-radius: 8px;
+    background: #FFFFFF;
+    border: none;
+}
+
+QSlider::handle:hover:horizontal {
+    background: #FFFFFF;
+}
+
+QSlider::handle:disabled:horizontal {
+    background: #9AA0B5;
+}
+
+/* === SpinBox === */
+QSpinBox {
+    background-color: #FFFFFF;
+    color: #2A2C3A;
+    border: 1px solid #C7C9D8;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-family: 'Segoe UI', monospace;
+    min-width: 80px;
+}
+
+QSpinBox:hover {
+    border-color: #0096B0;
+}
+
+QSpinBox:focus {
+    border-color: #0096B0;
+    background-color: #F3F4F9;
+}
+
+QSpinBox:disabled {
+    color: #9AA0B5;
+    background-color: #F3F4F9;
+    border-color: #E6E7F0;
+}
+)css";
+}
+
 GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS, bool fpsOnly, bool hwRateProvided, bool fpsRateProvided, QWidget* parent)
     : QMainWindow(parent), m_manager(manager), m_fpsOnlyMode(fpsOnly), m_refreshRate(refreshRateMs), m_refreshRateFPS(refreshRateFPS), m_refreshRateCliDefault(refreshRateMs), m_refreshRateFpsCliDefault(refreshRateFPS), m_hwRateProvided(hwRateProvided), m_fpsRateProvided(fpsRateProvided), ui(new Ui::GuiWindow)  {
 
     ui->setupUi(this);
     setWindowIcon(QIcon(":/icons/icon.ico"));
+    m_darkStyleSheet = this->styleSheet();
 
     m_metricsTimer = new QTimer(this);
     m_fpsTimer = new QTimer(this);
@@ -91,6 +357,19 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
 
     ui->controlLayout->activate();
     ui->m_controlGroup->update();
+
+    // Light theme: opt-in, persisted; default stays dark.
+    {
+        QSettings themeSettings("AmdFanSensors", "AmdFanSensors");
+        const bool lightTheme = themeSettings.value("lightTheme", false).toBool();
+        ui->m_lightThemeCheckbox->setChecked(lightTheme);
+        connect(ui->m_lightThemeCheckbox, &QCheckBox::toggled, this, [this](bool checked) {
+            setTheme(checked);
+            QSettings s("AmdFanSensors", "AmdFanSensors");
+            s.setValue("lightTheme", checked);
+        });
+        setTheme(lightTheme);
+    }
 
     onHardwareStatsToggled(ui->m_enableHardwareStatsCheckbox->isChecked());
     initializeTuningControls();
@@ -180,6 +459,12 @@ bool GuiWindow::OpenWin() {
         return false;
     }
     return true;
+}
+
+void GuiWindow::setTheme(bool light) {
+    setStyleSheet(light ? lightStyleSheet() : m_darkStyleSheet);
+    if (m_curvePlot)
+        m_curvePlot->setTheme(light ? CurvePlotWidget::Light : CurvePlotWidget::Dark);
 }
 
 void GuiWindow::initializeTuningControls() {
