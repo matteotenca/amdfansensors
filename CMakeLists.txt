@@ -25,6 +25,7 @@ add_executable(AmdFanSensors
 		Gui.cpp
 		Gui.h
 		Gui.ui
+		SettingsWindow.ui
 		resources.rc
 )
 

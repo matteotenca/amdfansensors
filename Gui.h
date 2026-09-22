@@ -21,6 +21,7 @@
 
 namespace Ui {
     class GuiWindow;
+    class SettingsWindow;
 }
 
 class CurvePlotWidget : public QWidget {
@@ -49,6 +50,8 @@ public:
         m_editable = editable;
         update();
     }
+
+    bool isEditable() const { return m_editable; }
 
     void setCurrentPoint(double temp, int fan) {
         m_currentTemp = temp;
@@ -442,6 +445,12 @@ private:
     bool m_collapsed = false;
 };
 
+class SettingsWindow : public QMainWindow {
+public:
+    explicit SettingsWindow(QWidget* parent = nullptr) : QMainWindow(parent) {}
+    Ui::SettingsWindow *ui = nullptr;
+};
+
 class GuiWindow : public QMainWindow {
     Q_OBJECT
 public:
@@ -453,21 +462,23 @@ private slots:
     void updateHardwareMetrics() const;
     void updateFpsMetrics() const;
     void onResetFpsClicked() const;
-    void onApplyTuningClicked();
-    void onVoltageOffsetToggled(bool checked) const;
-    void updateApplyButtonEnabled() const;
+    void onOpenSettings();
+    void onFanCurveToggled(bool checked);
+    void onZeroRpmToggled(bool checked);
+    void onVoltageOffsetToggled(bool checked);
+    void onVoltageValueChanged(int value);
+    void onApplyCurveClicked();
     void onMonitoringToggled(bool enabled) const;
     void onHardwareStatsToggled(bool enabled) const;
-    void onHwRefreshSliderChanged(int value) const;
-    void onFpsRefreshSliderChanged(int value) const;
-    void onApplyRefreshRateClicked();
+    void onHwRefreshSliderChanged(int value);
+    void onFpsRefreshSliderChanged(int value);
     void onCurveEdited();
 
 private:
     void setTheme(bool light);
     void initializeTuningControls();
     void initializeRefreshRateControls();
-    void updateRefreshApplyButtonEnabled() const;
+    void updateCurveButtonEnabled() const;
     std::vector<std::pair<int, int>> LoadSavedCurvePoints() const;
     void SaveCurvePoints(const std::vector<std::pair<int, int>>& points) const;
     GpuManager& m_manager;
@@ -483,14 +494,13 @@ private:
     bool m_hwRateProvided;
     bool m_fpsRateProvided;
 
-    bool m_baseZeroRpm;
-    bool m_baseFanCurve;
-    adlx_int m_baseVoltage;
     bool m_curveEdited = false;
+    std::vector<std::pair<int, int>> m_appliedCurvePoints;
     std::vector<std::pair<int, int>> m_stashedCustomPoints;
 
     CurvePlotWidget* m_curvePlot;
     Ui::GuiWindow *ui;
+    SettingsWindow* m_settingsWindow;
     QString m_darkStyleSheet;
 };
 #endif //AMDFANSENSORS_WINDOW_H

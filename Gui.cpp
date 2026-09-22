@@ -1,5 +1,6 @@
 #include "Gui.h"
 #include "ui_Gui.h"
+#include "ui_SettingsWindow.h"
 #include <iostream>
 #include <QString>
 #include <QCheckBox>
@@ -8,6 +9,7 @@
 #include <QSpinBox>
 #include <QMessageBox>
 #include <QSettings>
+#include <QMenuBar>
 
 static const QString lightStyleSheet() {
     return R"css(/* === Global Theme Variables === */
@@ -15,7 +17,7 @@ QMainWindow {
     background-color: #F3F4F9;
 }
 
-QWidget#GuiWindow {
+QWidget#GuiWindow, QWidget#m_centralWidget {
     background-color: #F3F4F9;
 }
 
@@ -48,10 +50,6 @@ QGroupBox#m_controlGroup {
 
 QGroupBox#m_fpsGroup {
     border-color: #B8860B;
-}
-
-QGroupBox#m_refreshRateGroup {
-    border-color: #7A3FA0;
 }
 
 /* === Labels === */
@@ -266,6 +264,36 @@ QSpinBox:focus {
     background-color: #F3F4F9;
 }
 
+/* === Menu Bar === */
+QMenuBar {
+    background-color: #F3F4F9;
+    border-bottom: 1px solid #C7C9D8;
+    border-radius: 0;
+}
+QMenuBar::item {
+    background: transparent;
+    color: #2A2C3A;
+    padding: 4px 8px;
+    border-radius: 2px;
+}
+QMenuBar::item:selected {
+    background-color: #E5E7F0;
+}
+QMenu {
+    background-color: #FFFFFF;
+    border: 1px solid #C7C9D8;
+    border-radius: 2px;
+}
+QMenu::item {
+    background: transparent;
+    color: #2A2C3A;
+    padding: 4px 10px;
+}
+QMenu::item:selected {
+    background-color: #E5E7F0;
+    color: #2A2C3A;
+}
+
 QSpinBox:disabled {
     color: #9AA0B5;
     background-color: #F3F4F9;
@@ -280,6 +308,19 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
     ui->setupUi(this);
     setWindowIcon(QIcon(":/icons/icon.ico"));
     m_darkStyleSheet = this->styleSheet();
+
+    m_settingsWindow = new SettingsWindow(this);
+    m_settingsWindow->ui = new Ui::SettingsWindow;
+    m_settingsWindow->ui->setupUi(m_settingsWindow);
+
+    QMenuBar* menuBar = new QMenuBar(this);
+    QMenu* fileMenu = menuBar->addMenu(QStringLiteral("File"));
+    QAction* settingsAction = new QAction(QStringLiteral("Settings"), fileMenu);
+    fileMenu->addAction(settingsAction);
+    setMenuBar(menuBar);
+    menuBar->setMinimumHeight(30);
+    menuBar->show();
+    connect(settingsAction, &QAction::triggered, this, &GuiWindow::onOpenSettings);
 
     m_metricsTimer = new QTimer(this);
     m_fpsTimer = new QTimer(this);
@@ -296,9 +337,9 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
 
     QSettings settings("AmdFanSensors", "AmdFanSensors");
     const bool stayOnTop = settings.value("stayOnTop", false).toBool();
-    ui->m_stayOnTopCheckbox->setChecked(stayOnTop);
+    m_settingsWindow->ui->m_stayOnTopCheckbox->setChecked(stayOnTop);
     setWindowFlag(Qt::WindowStaysOnTopHint, stayOnTop);
-    connect(ui->m_stayOnTopCheckbox, &QCheckBox::toggled, this, [this](bool checked) {
+    connect(m_settingsWindow->ui->m_stayOnTopCheckbox, &QCheckBox::toggled, this, [this](bool checked) {
         setWindowFlag(Qt::WindowStaysOnTopHint, checked);
         show();
         QSettings s("AmdFanSensors", "AmdFanSensors");
@@ -307,26 +348,26 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
 
     // Restore saved collapsed states of the collapsible group boxes.
     for (const QString& name : { QStringLiteral("m_hardwareGroup"), QStringLiteral("m_controlGroup"),
-                                 QStringLiteral("m_fpsGroup"), QStringLiteral("m_refreshRateGroup") }) {
+                                  QStringLiteral("m_fpsGroup"), QStringLiteral("m_windowGroup"),
+                                  QStringLiteral("m_updateGroup"), QStringLiteral("m_tuningGroup") }) {
         if (auto* cgb = qobject_cast<CollapsibleGroupBox*>(findChild<QGroupBox*>(name)))
             cgb->setCollapsed(settings.value("collapsedGroup/" + name, false).toBool());
     }
 
     // Initialize Curve Plot Widget
     m_curvePlot = new CurvePlotWidget(this);
-    ui->controlLayout->addWidget(m_curvePlot, 3, 0, 1, 2);
+    ui->controlLayout->addWidget(m_curvePlot, 1, 0, 1, 2);
     m_curvePlot->setMinimumHeight(160);
-    m_curvePlot->setPoints(m_manager.GetFanCurvePoints());
+    m_appliedCurvePoints = m_manager.GetFanCurvePoints();
+    m_curvePlot->setPoints(m_appliedCurvePoints);
 
     // Let the curve section grow with the window; keep other sections fixed.
-    ui->controlLayout->setRowStretch(3, 1);
+    ui->controlLayout->setRowStretch(1, 1);
     ui->m_mainLayout->setStretch(0, 0);
     ui->m_mainLayout->setStretch(1, 1);
     ui->m_mainLayout->setStretch(2, 0);
-    ui->m_mainLayout->setStretch(3, 0);
     ui->m_hardwareGroup->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
     ui->m_fpsGroup->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
-    ui->m_refreshRateGroup->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
 
     // The custom-curve preview stash: what re-checking the box shows before Apply.
     // Seeds from the GPU when it holds a custom curve, otherwise from saved prefs.
@@ -340,20 +381,9 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
     minSpeed = 0;                        // display axis starts at 0%
     m_curvePlot->setRanges(minTemp, maxTemp, minSpeed, maxSpeed);
     m_curvePlot->setDragSpeedRange(dragMinSpeed, maxSpeed);
-    m_curvePlot->setEditable(ui->m_fanCurveCheckbox->isChecked());
+    m_curvePlot->setEditable(m_settingsWindow->ui->m_fanCurveCheckbox->isChecked());
     connect(m_curvePlot, &CurvePlotWidget::pointsChanged, this, &GuiWindow::onCurveEdited);
-    connect(ui->m_fanCurveCheckbox, &QCheckBox::toggled, this, [this](bool checked) {
-        m_curvePlot->setEditable(checked);
-        if (checked) {
-            // Re-checking restores the custom-curve preview; nothing touches the GPU.
-            if (!m_stashedCustomPoints.empty())
-                m_curvePlot->setPoints(m_stashedCustomPoints);
-        } else {
-            // Unchecking previews the default curve; the custom one is stashed.
-            m_stashedCustomPoints = m_curvePlot->points();
-            m_curvePlot->setPoints(m_manager.GetDefaultFanCurvePoints());
-        }
-    });
+    connect(m_settingsWindow->ui->m_fanCurveCheckbox, &QCheckBox::toggled, this, &GuiWindow::onFanCurveToggled);
 
     ui->controlLayout->activate();
     ui->m_controlGroup->update();
@@ -362,8 +392,8 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
     {
         QSettings themeSettings("AmdFanSensors", "AmdFanSensors");
         const bool lightTheme = themeSettings.value("lightTheme", false).toBool();
-        ui->m_lightThemeCheckbox->setChecked(lightTheme);
-        connect(ui->m_lightThemeCheckbox, &QCheckBox::toggled, this, [this](bool checked) {
+        m_settingsWindow->ui->m_lightThemeCheckbox->setChecked(lightTheme);
+        connect(m_settingsWindow->ui->m_lightThemeCheckbox, &QCheckBox::toggled, this, [this](bool checked) {
             setTheme(checked);
             QSettings s("AmdFanSensors", "AmdFanSensors");
             s.setValue("lightTheme", checked);
@@ -378,9 +408,9 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
     if (m_fpsOnlyMode) {
         ui->m_hardwareGroup->hide();
         ui->m_controlGroup->hide();
-        ui->m_hwRefreshLabelTitle->setEnabled(false);
-        ui->m_hwRefreshSlider->setEnabled(false);
-        ui->m_hwRefreshValueLabel->setEnabled(false);
+        m_settingsWindow->ui->m_hwRefreshLabelTitle->setEnabled(false);
+        m_settingsWindow->ui->m_hwRefreshSlider->setEnabled(false);
+        m_settingsWindow->ui->m_hwRefreshValueLabel->setEnabled(false);
     }
 }
 
@@ -462,41 +492,40 @@ bool GuiWindow::OpenWin() {
 }
 
 void GuiWindow::setTheme(bool light) {
-    setStyleSheet(light ? lightStyleSheet() : m_darkStyleSheet);
+    const QString style = light ? lightStyleSheet() : m_darkStyleSheet;
+    setStyleSheet(style);
+    if (m_settingsWindow)
+        m_settingsWindow->setStyleSheet(style);
     if (m_curvePlot)
         m_curvePlot->setTheme(light ? CurvePlotWidget::Light : CurvePlotWidget::Dark);
 }
 
 void GuiWindow::initializeTuningControls() {
-    connect(ui->m_voltageSlider, &QSlider::valueChanged, ui->m_voltageSpinBox, &QSpinBox::setValue);
-    connect(ui->m_voltageSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), ui->m_voltageSlider, &QSlider::setValue);
-
-    connect(ui->m_voltageOffsetCheckbox, &QCheckBox::toggled, this, &GuiWindow::onVoltageOffsetToggled);
-
-    connect(ui->m_applyTuningButton, &QPushButton::clicked, this, &GuiWindow::onApplyTuningClicked);
-
-    connect(ui->m_zeroRpmCheckbox, &QCheckBox::toggled, this, &GuiWindow::updateApplyButtonEnabled);
-    connect(ui->m_fanCurveCheckbox, &QCheckBox::toggled, this, &GuiWindow::updateApplyButtonEnabled);
-    connect(ui->m_voltageSlider, &QSlider::valueChanged, this, &GuiWindow::updateApplyButtonEnabled);
-    connect(ui->m_voltageSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, &GuiWindow::updateApplyButtonEnabled);
+    connect(m_settingsWindow->ui->m_voltageSlider, &QSlider::valueChanged, m_settingsWindow->ui->m_voltageSpinBox, &QSpinBox::setValue);
+    connect(m_settingsWindow->ui->m_voltageSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), m_settingsWindow->ui->m_voltageSlider, &QSlider::setValue);
+    connect(m_settingsWindow->ui->m_voltageOffsetCheckbox, &QCheckBox::toggled, this, &GuiWindow::onVoltageOffsetToggled);
+    connect(m_settingsWindow->ui->m_voltageSlider, &QSlider::valueChanged, this, &GuiWindow::onVoltageValueChanged);
+    connect(m_settingsWindow->ui->m_voltageSpinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, &GuiWindow::onVoltageValueChanged);
+    connect(m_settingsWindow->ui->m_zeroRpmCheckbox, &QCheckBox::toggled, this, &GuiWindow::onZeroRpmToggled);
+    connect(m_settingsWindow->ui->m_fanCurveCheckbox, &QCheckBox::toggled, this, &GuiWindow::onFanCurveToggled);
+    connect(ui->m_applyTuningButton, &QPushButton::clicked, this, &GuiWindow::onApplyCurveClicked);
 
     try {
         bool zeroRpmSupported = m_manager.IsZeroRPMSupported();
-        ui->m_zeroRpmCheckbox->setEnabled(zeroRpmSupported);
+        m_settingsWindow->ui->m_zeroRpmCheckbox->setEnabled(zeroRpmSupported);
         if (zeroRpmSupported) {
-            ui->m_zeroRpmCheckbox->setChecked(m_manager.GetZeroRPMState());
+            m_settingsWindow->ui->m_zeroRpmCheckbox->setChecked(m_manager.GetZeroRPMState());
         } else {
-            ui->m_zeroRpmCheckbox->setText("Zero RPM (Unsupported)");
+            m_settingsWindow->ui->m_zeroRpmCheckbox->setText("Zero RPM (Unsupported)");
         }
-        m_baseZeroRpm = m_manager.GetZeroRPMState();
     } catch (const std::exception& e) {
         std::cerr << "[Gui] Failed to query ZeroRPM support: " << e.what() << std::endl;
-        ui->m_zeroRpmCheckbox->setEnabled(false);
-        ui->m_zeroRpmCheckbox->setText("Zero RPM (Unsupported)");
+        m_settingsWindow->ui->m_zeroRpmCheckbox->setEnabled(false);
+        m_settingsWindow->ui->m_zeroRpmCheckbox->setText("Zero RPM (Unsupported)");
     } catch (...) {
         std::cerr << "[Gui] Failed to query ZeroRPM support: unknown error" << std::endl;
-        ui->m_zeroRpmCheckbox->setEnabled(false);
-        ui->m_zeroRpmCheckbox->setText("Zero RPM (Unsupported)");
+        m_settingsWindow->ui->m_zeroRpmCheckbox->setEnabled(false);
+        m_settingsWindow->ui->m_zeroRpmCheckbox->setText("Zero RPM (Unsupported)");
     }
 
     adlx_int minVolt = -200;
@@ -515,12 +544,11 @@ void GuiWindow::initializeTuningControls() {
         maxVolt = 0;
     }
     
-    ui->m_voltageSlider->setRange(minVolt, maxVolt);
-    ui->m_voltageSpinBox->setRange(minVolt, maxVolt);
+    m_settingsWindow->ui->m_voltageSlider->setRange(minVolt, maxVolt);
+    m_settingsWindow->ui->m_voltageSpinBox->setRange(minVolt, maxVolt);
 
     const bool isFanCurveDefaultOne = m_manager.IsFanCurveDefaultOne();
-    ui->m_fanCurveCheckbox->setChecked(!isFanCurveDefaultOne);
-    m_baseFanCurve = !isFanCurveDefaultOne;
+    m_settingsWindow->ui->m_fanCurveCheckbox->setChecked(!isFanCurveDefaultOne);
 
     // Startup sync: when a custom curve is active on the GPU and differs from the
     // saved prefs, the GPU curve wins and prefs are refreshed to match it.
@@ -535,37 +563,34 @@ void GuiWindow::initializeTuningControls() {
     try {
         adlx_int currentOffset = m_manager.GetVoltageOffset();
         if (currentOffset != 0) {
-            ui->m_voltageOffsetCheckbox->setChecked(true);
-            ui->m_voltageSlider->setValue(currentOffset);
-            ui->m_voltageSpinBox->setValue(currentOffset);
-            ui->m_voltageSlider->setEnabled(true);
-            ui->m_voltageSpinBox->setEnabled(true);
+            m_settingsWindow->ui->m_voltageOffsetCheckbox->setChecked(true);
+            m_settingsWindow->ui->m_voltageSlider->setValue(currentOffset);
+            m_settingsWindow->ui->m_voltageSpinBox->setValue(currentOffset);
+            m_settingsWindow->ui->m_voltageSlider->setEnabled(true);
+            m_settingsWindow->ui->m_voltageSpinBox->setEnabled(true);
         } else {
-            ui->m_voltageOffsetCheckbox->setChecked(false);
-            ui->m_voltageSlider->setValue(0);
-            ui->m_voltageSpinBox->setValue(0);
+            m_settingsWindow->ui->m_voltageOffsetCheckbox->setChecked(false);
+            m_settingsWindow->ui->m_voltageSlider->setValue(0);
+            m_settingsWindow->ui->m_voltageSpinBox->setValue(0);
         }
-        m_baseVoltage = currentOffset;
     } catch (const std::exception& e) {
         std::cerr << "[Gui] Failed to query current voltage offset: " << e.what() << std::endl;
-        ui->m_voltageOffsetCheckbox->setChecked(false);
-        ui->m_voltageSlider->setValue(0);
-        ui->m_voltageSpinBox->setValue(0);
-        m_baseVoltage = 0;
+        m_settingsWindow->ui->m_voltageOffsetCheckbox->setChecked(false);
+        m_settingsWindow->ui->m_voltageSlider->setValue(0);
+        m_settingsWindow->ui->m_voltageSpinBox->setValue(0);
     } catch (...) {
         std::cerr << "[Gui] Failed to query current voltage offset: unknown error" << std::endl;
-        ui->m_voltageOffsetCheckbox->setChecked(false);
-        ui->m_voltageSlider->setValue(0);
-        ui->m_voltageSpinBox->setValue(0);
-        m_baseVoltage = 0;
+        m_settingsWindow->ui->m_voltageOffsetCheckbox->setChecked(false);
+        m_settingsWindow->ui->m_voltageSlider->setValue(0);
+        m_settingsWindow->ui->m_voltageSpinBox->setValue(0);
     }
 
-    updateApplyButtonEnabled();
+    updateCurveButtonEnabled();
 }
 
 void GuiWindow::initializeRefreshRateControls() {
-    ui->m_hwRefreshSlider->setRange(100, 5000);
-    ui->m_fpsRefreshSlider->setRange(100, 5000);
+    m_settingsWindow->ui->m_hwRefreshSlider->setRange(100, 5000);
+    m_settingsWindow->ui->m_fpsRefreshSlider->setRange(100, 5000);
 
     QSettings settings("AmdFanSensors", "AmdFanSensors");
     int savedHwRate = settings.value("refreshRate", 1000).toInt();
@@ -580,130 +605,113 @@ void GuiWindow::initializeRefreshRateControls() {
     m_refreshRate = hwRate;
     m_refreshRateFPS = fpsRate;
 
-    ui->m_hwRefreshSlider->setValue(hwRate);
-    ui->m_hwRefreshValueLabel->setText(QString("%1 ms").arg(hwRate));
+    connect(m_settingsWindow->ui->m_hwRefreshSlider, &QSlider::valueChanged, this, &GuiWindow::onHwRefreshSliderChanged);
+    connect(m_settingsWindow->ui->m_fpsRefreshSlider, &QSlider::valueChanged, this, &GuiWindow::onFpsRefreshSliderChanged);
 
-    ui->m_fpsRefreshSlider->setValue(fpsRate);
-    ui->m_fpsRefreshValueLabel->setText(QString("%1 ms").arg(fpsRate));
+    m_settingsWindow->ui->m_hwRefreshSlider->setValue(hwRate);
+    m_settingsWindow->ui->m_hwRefreshValueLabel->setText(QString("%1 ms").arg(hwRate));
 
-    connect(ui->m_hwRefreshSlider, &QSlider::valueChanged, this, &GuiWindow::onHwRefreshSliderChanged);
-    connect(ui->m_fpsRefreshSlider, &QSlider::valueChanged, this, &GuiWindow::onFpsRefreshSliderChanged);
-    connect(ui->m_applyRefreshRateButton, &QPushButton::clicked, this, &GuiWindow::onApplyRefreshRateClicked);
-
-    updateRefreshApplyButtonEnabled();
+    m_settingsWindow->ui->m_fpsRefreshSlider->setValue(fpsRate);
+    m_settingsWindow->ui->m_fpsRefreshValueLabel->setText(QString("%1 ms").arg(fpsRate));
 }
 
-void GuiWindow::updateRefreshApplyButtonEnabled() const {
-    bool hwRateChanged = ui->m_hwRefreshSlider->value() != m_refreshRateCliDefault;
-    bool fpsRateChanged = ui->m_fpsRefreshSlider->value() != m_refreshRateFpsCliDefault;
-
-    ui->m_applyRefreshRateButton->setEnabled(hwRateChanged || fpsRateChanged);
-}
-
-void GuiWindow::onHwRefreshSliderChanged(int value) const {
-    ui->m_hwRefreshValueLabel->setText(QString("%1 ms").arg(value));
-    updateRefreshApplyButtonEnabled();
-}
-
-void GuiWindow::onFpsRefreshSliderChanged(int value) const {
-    ui->m_fpsRefreshValueLabel->setText(QString("%1 ms").arg(value));
-    updateRefreshApplyButtonEnabled();
-}
-
-void GuiWindow::onApplyRefreshRateClicked() {
-    m_refreshRate = ui->m_hwRefreshSlider->value();
-    m_refreshRateFPS = ui->m_fpsRefreshSlider->value();
-
+void GuiWindow::onHwRefreshSliderChanged(int value) {
+    m_settingsWindow->ui->m_hwRefreshValueLabel->setText(QString("%1 ms").arg(value));
+    m_refreshRate = value;
     if (m_metricsTimer->isActive())
         m_metricsTimer->start(m_refreshRate);
-    if (m_fpsTimer->isActive())
-        m_fpsTimer->start(m_refreshRateFPS);
-
-    m_refreshRateCliDefault = m_refreshRate;
-    m_refreshRateFpsCliDefault = m_refreshRateFPS;
-
     QSettings settings("AmdFanSensors", "AmdFanSensors");
     settings.setValue("refreshRate", m_refreshRate);
+}
+
+void GuiWindow::onFpsRefreshSliderChanged(int value) {
+    m_settingsWindow->ui->m_fpsRefreshValueLabel->setText(QString("%1 ms").arg(value));
+    m_refreshRateFPS = value;
+    if (m_fpsTimer->isActive())
+        m_fpsTimer->start(m_refreshRateFPS);
+    QSettings settings("AmdFanSensors", "AmdFanSensors");
     settings.setValue("refreshRateFPS", m_refreshRateFPS);
-
-    updateRefreshApplyButtonEnabled();
 }
 
-void GuiWindow::onVoltageOffsetToggled(bool checked) const {
-    ui->m_voltageSlider->setEnabled(checked);
-    ui->m_voltageSpinBox->setEnabled(checked);
-    if (!checked) {
-        ui->m_voltageSlider->setValue(0);
-        ui->m_voltageSpinBox->setValue(0);
+void GuiWindow::onOpenSettings() {
+    m_settingsWindow->show();
+    m_settingsWindow->raise();
+    m_settingsWindow->activateWindow();
+}
+
+void GuiWindow::onFanCurveToggled(bool checked) {
+    if (checked) {
+        if (m_stashedCustomPoints.empty())
+            m_stashedCustomPoints = m_appliedCurvePoints;
+        m_curvePlot->setPoints(m_stashedCustomPoints);
+        m_curvePlot->setEditable(true);
+        m_curveEdited = (m_stashedCustomPoints != m_appliedCurvePoints);
+    } else {
+        // Default curve applied to the GPU immediately; the current (custom)
+        // curve is stashed so re-checking restores it.
+        m_stashedCustomPoints = m_curvePlot->points();
+        m_appliedCurvePoints = m_manager.GetDefaultFanCurvePoints();
+        m_manager.SetFanCurvePoints(m_appliedCurvePoints);
+        m_curvePlot->setPoints(m_appliedCurvePoints);
+        m_curvePlot->setEditable(false);
+        m_curveEdited = false;
     }
-    updateApplyButtonEnabled();
+    updateCurveButtonEnabled();
 }
 
-void GuiWindow::updateApplyButtonEnabled() const {
-    bool zeroRpmChanged = ui->m_zeroRpmCheckbox->isChecked() != m_baseZeroRpm;
-    bool fanCurveChanged = ui->m_fanCurveCheckbox->isChecked() != m_baseFanCurve;
-    bool voltageChanged = ui->m_voltageSpinBox->value() != m_baseVoltage;
+void GuiWindow::onZeroRpmToggled(bool checked) {
+    if (m_settingsWindow->ui->m_zeroRpmCheckbox->isEnabled())
+        m_manager.SetZeroRPM(checked);
+    updateCurveButtonEnabled();
+}
 
-    ui->m_applyTuningButton->setEnabled(zeroRpmChanged || fanCurveChanged || voltageChanged || m_curveEdited);
+void GuiWindow::onVoltageOffsetToggled(bool checked) {
+    m_settingsWindow->ui->m_voltageSlider->setEnabled(checked);
+    m_settingsWindow->ui->m_voltageSpinBox->setEnabled(checked);
+    int value = checked ? m_settingsWindow->ui->m_voltageSpinBox->value() : 0;
+    m_settingsWindow->ui->m_voltageSlider->setValue(value);
+    m_settingsWindow->ui->m_voltageSpinBox->setValue(value);
+    m_manager.SetVoltageOffset(value);
+    updateCurveButtonEnabled();
+}
+
+void GuiWindow::onVoltageValueChanged(int value) {
+    if (m_settingsWindow->ui->m_voltageOffsetCheckbox->isChecked())
+        m_manager.SetVoltageOffset(value);
+    updateCurveButtonEnabled();
+}
+
+void GuiWindow::updateCurveButtonEnabled() const {
+    ui->m_applyTuningButton->setEnabled(m_curvePlot->isEditable() &&
+        (m_curveEdited || m_curvePlot->points() != m_appliedCurvePoints));
 }
 
 void GuiWindow::onCurveEdited() {
     m_curveEdited = true;
-    updateApplyButtonEnabled();
+    updateCurveButtonEnabled();
 }
 
-void GuiWindow::onApplyTuningClicked() {
+void GuiWindow::onApplyCurveClicked() {
     try {
-        if (ui->m_zeroRpmCheckbox->isEnabled()) {
-            bool checked = ui->m_zeroRpmCheckbox->isChecked();
-            m_manager.SetZeroRPM(checked);
-        }
+        m_appliedCurvePoints = m_curvePlot->points();
+        m_manager.SetFanCurvePoints(m_appliedCurvePoints);
+        SaveCurvePoints(m_appliedCurvePoints);
 
-        bool customFan = ui->m_fanCurveCheckbox->isChecked();
-        bool curveApplied = false;
-        if (customFan) {
-            curveApplied = m_manager.SetFanCurvePoints(m_curvePlot->points());
-        } else {
-            // Unchecked: apply the default curve to the GPU. The saved custom
-            // curve in prefs is retained for future re-use.
-            curveApplied = m_manager.SetFanCurvePoints(m_manager.GetDefaultFanCurvePoints());
-        }
-
-        adlx_int voltOffset = 0;
-        if (ui->m_voltageOffsetCheckbox->isChecked()) {
-            voltOffset = ui->m_voltageSpinBox->value();
-        }
-        m_manager.SetVoltageOffset(voltOffset);
-
-        m_baseZeroRpm = ui->m_zeroRpmCheckbox->isChecked();
-        m_baseFanCurve = ui->m_fanCurveCheckbox->isChecked();
-        m_baseVoltage = voltOffset;
         m_curveEdited = false;
+        updateCurveButtonEnabled();
 
-        std::cout << "Applied settings: ZeroRPM=" << ui->m_zeroRpmCheckbox->isChecked()
-                  << ", CustomFan=" << customFan
-                  << ", VoltageOffset=" << voltOffset << " mV" << std::endl;
-        const auto gpuPoints = m_manager.GetFanCurvePoints();
-        m_curvePlot->setPoints(gpuPoints);
-        if (!m_manager.IsDefaultFanCurve(gpuPoints)) {
-            m_stashedCustomPoints = gpuPoints;
-        }
-        if (customFan && curveApplied) {
-            SaveCurvePoints(gpuPoints);
-        }
-        updateApplyButtonEnabled();
+        std::cout << "Applied fan curve: " << m_appliedCurvePoints.size() << " points." << std::endl;
 
         ui->m_applyTuningButton->setText("Applied!");
-        QTimer::singleShot(2500, ui->m_applyTuningButton, [this]() { ui->m_applyTuningButton->setText("Apply Tuning Settings"); });
-
+        QTimer::singleShot(2500, ui->m_applyTuningButton, [this]() { ui->m_applyTuningButton->setText("Apply Fan Curve"); });
     } catch (const std::exception& e) {
-        std::cerr << "Error applying tuning settings: " << e.what() << std::endl;
-        QMessageBox::critical(this, "Tuning Error",
-            QString("Failed to apply tuning settings:\n%1").arg(e.what()));
+        std::cerr << "Error applying fan curve: " << e.what() << std::endl;
+        QMessageBox::critical(this, "Curve Error",
+            QString("Failed to apply fan curve:\n%1").arg(e.what()));
     }
     catch (...) {
-        std::cerr << "Error applying tuning settings: unknown error" << std::endl;
-        QMessageBox::critical(this, "Tuning Error", "Failed to apply tuning settings: unknown error.");
+        std::cerr << "Error applying fan curve: unknown error" << std::endl;
+        QMessageBox::critical(this, "Curve Error", "Failed to apply fan curve: unknown error.");
     }
 }
 

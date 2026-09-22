@@ -1,0 +1,408 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>SettingsWindow</class>
+ <widget class="QMainWindow" name="SettingsWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>520</width>
+    <height>420</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Settings</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">/* === Global Theme Variables === */
+QMainWindow {
+    background-color: #1E1E2E;
+}
+
+QWidget#SettingsWindow {
+    background-color: #1E1E2E;
+}
+
+/* === Group Boxes === */
+QGroupBox {
+    font-weight: bold;
+    color: #CDD6F4;
+    border: 1px solid #313244;
+    border-radius: 2px;
+    margin-top: 15px;
+    padding-top: 16px;
+    background-color: #181825;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 14px;
+    padding: 0 6px;
+}
+
+/* === Section Headers === */
+QGroupBox#m_windowGroup {
+    border-color: #585B7A;
+}
+
+QGroupBox#m_updateGroup {
+    border-color: #CBA6F7;
+}
+
+QGroupBox#m_tuningGroup {
+    border-color: #89DCEB;
+}
+
+/* === Labels === */
+QLabel {
+    color: #CAD6F4;
+    font-family: 'Segoe UI', 'Cascadia Code', 'Consolas';
+}
+
+/* === Buttons === */
+QPushButton {
+    background-color: #313244;
+    color: #CDD6F4;
+    border: 1px solid #45475A;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+QPushButton:hover {
+    background-color: #45475A;
+    border-color: #CDD6F4;
+    color: #FFFFFF;
+}
+
+QPushButton:pressed {
+    background-color: #585B7A;
+    color: #FFFFFF;
+}
+
+QPushButton:disabled {
+    background-color: #262730;
+    color: #585B7A;
+    border-color: #313244;
+}
+
+/* === Checkboxes === */
+QCheckBox {
+    color: #CAD6F4;
+    font-weight: 500;
+    spacing: 8px;
+}
+
+QCheckBox::indicator {
+    width: 12px;
+    height: 12px;
+    border-radius: 4px;
+    border: 2px solid #585B7A;
+    background-color: #313244;
+}
+
+QCheckBox::indicator:checked {
+    background-color: #89DCEB;
+    border-color: #89DCEB;
+}
+
+QCheckBox::indicator:hover {
+    border-color: #CDD6F4;
+}
+
+QCheckBox::indicator:disabled {
+    border-color: #313244;
+    background-color: #1E1E2E;
+}
+
+QCheckBox:disabled {
+    color: #585B7A;
+}
+
+/* === Slider === */
+QSlider::groove:horizontal {
+    border: none;
+    height: 6px;
+    background: #313244;
+    border-radius: 3px;
+    margin: 0;
+}
+
+QSlider::add-page:horizontal {
+    background: #313244;
+    border-radius: 3px;
+}
+
+QSlider::sub-page:horizontal {
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #89DCEB, stop:1 #89DCEB);
+    border-radius: 3px;
+}
+
+QSlider::handle:horizontal {
+    width: 16px;
+    margin: -5px 0;
+    border-radius: 8px;
+    background: #CDD6F4;
+    border: none;
+}
+
+QSlider::handle:hover:horizontal {
+    background: #FFFFFF;
+}
+
+QSlider::handle:disabled:horizontal {
+    background: #585B7A;
+}
+
+/* === SpinBox === */
+QSpinBox {
+    background-color: #313244;
+    color: #CDD6F4;
+    border: 1px solid #45475A;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-family: 'Segoe UI', monospace;
+    min-width: 80px;
+}
+
+QSpinBox:hover {
+    border-color: #89DCEB;
+}
+
+QSpinBox:focus {
+    border-color: #89DCEB;
+    background-color: #3A3B4C;
+}
+
+QSpinBox:disabled {
+    color: #585B7A;
+    background-color: #1E1E2E;
+    border-color: #313244;
+}</string>
+  </property>
+  <widget class="QWidget" name="m_centralWidget">
+   <layout class="QVBoxLayout" name="m_mainLayout">
+    <property name="spacing">
+     <number>12</number>
+    </property>
+    <property name="leftMargin">
+     <number>16</number>
+    </property>
+    <property name="topMargin">
+     <number>16</number>
+    </property>
+    <property name="rightMargin">
+     <number>16</number>
+    </property>
+    <property name="bottomMargin">
+     <number>16</number>
+    </property>
+    <item>
+     <widget class="CollapsibleGroupBox" name="m_windowGroup">
+      <property name="title">
+       <string>Window</string>
+      </property>
+      <layout class="QHBoxLayout" name="windowLayout">
+       <property name="spacing">
+        <number>20</number>
+       </property>
+       <item>
+        <widget class="QCheckBox" name="m_stayOnTopCheckbox">
+         <property name="text">
+          <string>Always on Top</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QCheckBox" name="m_lightThemeCheckbox">
+         <property name="text">
+          <string>Light Theme</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="CollapsibleGroupBox" name="m_updateGroup">
+      <property name="title">
+       <string>Update Frequency</string>
+      </property>
+      <layout class="QGridLayout" name="refreshRateLayout">
+       <property name="spacing">
+        <number>8</number>
+       </property>
+       <item row="0" column="0">
+        <widget class="QLabel" name="m_hwRefreshLabelTitle">
+         <property name="text">
+          <string>Hardware Data</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QSlider" name="m_hwRefreshSlider">
+         <property name="minimum">
+          <number>100</number>
+         </property>
+         <property name="maximum">
+          <number>5000</number>
+         </property>
+         <property name="value">
+          <number>1000</number>
+         </property>
+         <property name="orientation">
+          <enum>Qt::Orientation::Horizontal</enum>
+         </property>
+         <property name="tickPosition">
+          <enum>QSlider::TickPosition::TicksBelow</enum>
+         </property>
+         <property name="tickInterval">
+          <number>500</number>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="2">
+        <widget class="QLabel" name="m_hwRefreshValueLabel">
+         <property name="alignment">
+          <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
+         </property>
+         <property name="text">
+          <string>1000 ms</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLabel" name="m_fpsRefreshLabelTitle">
+         <property name="text">
+          <string>FPS Monitor</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <widget class="QSlider" name="m_fpsRefreshSlider">
+         <property name="minimum">
+          <number>100</number>
+         </property>
+         <property name="maximum">
+          <number>5000</number>
+         </property>
+         <property name="value">
+          <number>1000</number>
+         </property>
+         <property name="orientation">
+          <enum>Qt::Orientation::Horizontal</enum>
+         </property>
+         <property name="tickPosition">
+          <enum>QSlider::TickPosition::TicksBelow</enum>
+         </property>
+         <property name="tickInterval">
+          <number>500</number>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="2">
+        <widget class="QLabel" name="m_fpsRefreshValueLabel">
+         <property name="alignment">
+          <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
+         </property>
+         <property name="text">
+          <string>1000 ms</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
+     <widget class="CollapsibleGroupBox" name="m_tuningGroup">
+      <property name="title">
+       <string>Tuning</string>
+      </property>
+      <layout class="QGridLayout" name="controlLayout">
+       <property name="spacing">
+        <number>10</number>
+       </property>
+       <item row="0" column="0">
+        <widget class="QCheckBox" name="m_zeroRpmCheckbox">
+         <property name="text">
+          <string>Enable Zero RPM</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QCheckBox" name="m_fanCurveCheckbox">
+         <property name="text">
+          <string>Manual Fan Curve Profile</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QCheckBox" name="m_voltageOffsetCheckbox">
+         <property name="text">
+          <string>Manual Voltage Offset</string>
+         </property>
+        </widget>
+       </item>
+       <item row="1" column="1">
+        <layout class="QHBoxLayout" name="voltageLayout">
+         <item>
+          <widget class="QSlider" name="m_voltageSlider">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="minimum">
+            <number>-200</number>
+           </property>
+           <property name="maximum">
+            <number>0</number>
+           </property>
+           <property name="value">
+            <number>0</number>
+           </property>
+           <property name="orientation">
+            <enum>Qt::Orientation::Horizontal</enum>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QSpinBox" name="m_voltageSpinBox">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
+           <property name="buttonSymbols">
+            <enum>QAbstractSpinBox::ButtonSymbols::PlusMinus</enum>
+           </property>
+           <property name="suffix">
+            <string> mV</string>
+           </property>
+           <property name="minimum">
+            <number>-200</number>
+           </property>
+           <property name="maximum">
+            <number>0</number>
+           </property>
+           <property name="value">
+            <number>0</number>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
+      </layout>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>CollapsibleGroupBox</class>
+   <extends>QGroupBox</extends>
+   <header>Gui.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

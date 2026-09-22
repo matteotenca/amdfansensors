@@ -54,10 +54,6 @@ QGroupBox#m_fpsGroup {
     border-color: #F9E2AF;
 }
 
-QGroupBox#m_refreshRateGroup {
-    border-color: #CBA6F7;
-}
-
 /* === Labels === */
 QLabel {
     color: #CAD6F4;
@@ -282,6 +278,36 @@ QSpinBox:focus {
 /*background-color: transparent;*/
 /*}*/
 
+/* === Menu Bar === */
+QMenuBar {
+    background-color: #2B2B3A;
+    border-bottom: 1px solid #313244;
+    border-radius: 0;
+}
+QMenuBar::item {
+    background: transparent;
+    color: #CDD6F4;
+    padding: 4px 8px;
+    border-radius: 2px;
+}
+QMenuBar::item:selected {
+    background-color: #313244;
+}
+QMenu {
+    background-color: #1E1E2E;
+    border: 1px solid #313244;
+    border-radius: 2px;
+}
+QMenu::item {
+    background: transparent;
+    color: #CDD6F4;
+    padding: 4px 10px;
+}
+QMenu::item:selected {
+    background-color: #313244;
+    color: #CDD6F4;
+}
+
 QSpinBox:disabled {
     color: #585B7A;
     background-color: #1E1E2E;
@@ -314,27 +340,13 @@ QSpinBox:disabled {
        <property name="spacing">
         <number>6</number>
        </property>
-<item row="0" column="0">
+        <item row="0" column="0">
          <widget class="QCheckBox" name="m_enableHardwareStatsCheckbox">
           <property name="text">
            <string>Enable Hardware Stats Gathering</string>
           </property>
           <property name="checked">
            <bool>true</bool>
-          </property>
-         </widget>
-        </item>
-         <item row="0" column="1" alignment="Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter">
-          <widget class="QCheckBox" name="m_stayOnTopCheckbox">
-           <property name="text">
-            <string>Always on Top</string>
-           </property>
-          </widget>
-         </item>
-        <item row="0" column="2">
-         <widget class="QCheckBox" name="m_lightThemeCheckbox">
-          <property name="text">
-           <string>Light Theme</string>
           </property>
          </widget>
         </item>
@@ -526,82 +538,16 @@ QSpinBox:disabled {
        <property name="spacing">
         <number>10</number>
        </property>
-       <item row="0" column="0">
-        <widget class="QCheckBox" name="m_zeroRpmCheckbox">
-         <property name="text">
-          <string>Enable Zero RPM</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QCheckBox" name="m_fanCurveCheckbox">
-         <property name="text">
-          <string>Manual Fan Curve Profile</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QCheckBox" name="m_voltageOffsetCheckbox">
-         <property name="text">
-          <string>Manual Voltage Offset</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <layout class="QHBoxLayout" name="voltageLayout">
-         <item>
-          <widget class="QSlider" name="m_voltageSlider">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="minimum">
-            <number>-200</number>
-           </property>
-           <property name="maximum">
-            <number>0</number>
-           </property>
-           <property name="value">
-            <number>0</number>
-           </property>
-           <property name="orientation">
-            <enum>Qt::Orientation::Horizontal</enum>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QSpinBox" name="m_voltageSpinBox">
-           <property name="enabled">
-            <bool>false</bool>
-           </property>
-           <property name="buttonSymbols">
-            <enum>QAbstractSpinBox::ButtonSymbols::PlusMinus</enum>
-           </property>
-           <property name="suffix">
-            <string> mV</string>
-           </property>
-           <property name="minimum">
-            <number>-200</number>
-           </property>
-           <property name="maximum">
-            <number>0</number>
-           </property>
-           <property name="value">
-            <number>0</number>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </item>
-       <item row="2" column="0" colspan="2">
-        <widget class="QPushButton" name="m_applyTuningButton">
-         <property name="text">
-          <string>Apply Tuning Settings</string>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </widget>
-    </item>
+        <item row="2" column="0" colspan="2">
+         <widget class="QPushButton" name="m_applyTuningButton">
+          <property name="text">
+           <string>Apply Fan Curve</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+     </item>
     <item>
      <widget class="CollapsibleGroupBox" name="m_fpsGroup">
       <property name="title">
@@ -672,105 +618,8 @@ QSpinBox:disabled {
        </item>
       </layout>
      </widget>
-    </item>
-    <item>
-     <widget class="CollapsibleGroupBox" name="m_refreshRateGroup">
-      <property name="title">
-       <string>Update Frequency</string>
-      </property>
-      <layout class="QGridLayout" name="refreshRateLayout">
-       <property name="spacing">
-        <number>8</number>
-       </property>
-       <item row="0" column="0">
-        <widget class="QLabel" name="m_hwRefreshLabelTitle">
-         <property name="text">
-          <string>Hardware Data</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QSlider" name="m_hwRefreshSlider">
-         <property name="minimum">
-          <number>100</number>
-         </property>
-         <property name="maximum">
-          <number>5000</number>
-         </property>
-         <property name="value">
-          <number>1000</number>
-         </property>
-         <property name="orientation">
-          <enum>Qt::Orientation::Horizontal</enum>
-         </property>
-         <property name="tickPosition">
-          <enum>QSlider::TickPosition::TicksBelow</enum>
-         </property>
-         <property name="tickInterval">
-          <number>500</number>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="2">
-        <widget class="QLabel" name="m_hwRefreshValueLabel">
-         <property name="alignment">
-          <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
-         </property>
-         <property name="text">
-          <string>1000 ms</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="m_fpsRefreshLabelTitle">
-         <property name="text">
-          <string>FPS Monitor</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="1">
-        <widget class="QSlider" name="m_fpsRefreshSlider">
-         <property name="minimum">
-          <number>100</number>
-         </property>
-         <property name="maximum">
-          <number>5000</number>
-         </property>
-         <property name="value">
-          <number>1000</number>
-         </property>
-         <property name="orientation">
-          <enum>Qt::Orientation::Horizontal</enum>
-         </property>
-         <property name="tickPosition">
-          <enum>QSlider::TickPosition::TicksBelow</enum>
-         </property>
-         <property name="tickInterval">
-          <number>500</number>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="2">
-        <widget class="QLabel" name="m_fpsRefreshValueLabel">
-         <property name="alignment">
-          <set>Qt::AlignmentFlag::AlignRight|Qt::AlignmentFlag::AlignVCenter</set>
-         </property>
-         <property name="text">
-          <string>1000 ms</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="0" colspan="3">
-        <widget class="QPushButton" name="m_applyRefreshRateButton">
-         <property name="text">
-          <string>Apply Update Rates</string>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </widget>
-    </item>
-   </layout>
+     </item>
+    </layout>
   </widget>
  </widget>
  <customwidgets>
