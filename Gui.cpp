@@ -641,15 +641,23 @@ void GuiWindow::onOpenSettings() {
 
 void GuiWindow::onFanCurveToggled(bool checked) {
     if (checked) {
-        if (m_stashedCustomPoints.empty())
+        // Restore the last custom curve to plot + GPU, with fallbacks
+        // (stash -> saved config -> current applied curve).
+        if (m_stashedCustomPoints.empty() || m_manager.IsDefaultFanCurve(m_stashedCustomPoints))
+            m_stashedCustomPoints = LoadSavedCurvePoints();
+        if (m_stashedCustomPoints.empty() || m_manager.IsDefaultFanCurve(m_stashedCustomPoints))
             m_stashedCustomPoints = m_appliedCurvePoints;
-        m_curvePlot->setPoints(m_stashedCustomPoints);
+        m_appliedCurvePoints = m_stashedCustomPoints;
+        m_curvePlot->setPoints(m_appliedCurvePoints);
+        m_manager.SetFanCurvePoints(m_appliedCurvePoints);
         m_curvePlot->setEditable(true);
-        m_curveEdited = (m_stashedCustomPoints != m_appliedCurvePoints);
+        m_curveEdited = false;
     } else {
         // Default curve applied to the GPU immediately; the current (custom)
-        // curve is stashed so re-checking restores it.
-        m_stashedCustomPoints = m_curvePlot->points();
+        // curve is stashed so re-checking restores it. Only stash a genuine
+        // custom curve so the default never clobbers the stash.
+        if (!m_manager.IsDefaultFanCurve(m_curvePlot->points()))
+            m_stashedCustomPoints = m_curvePlot->points();
         m_appliedCurvePoints = m_manager.GetDefaultFanCurvePoints();
         m_manager.SetFanCurvePoints(m_appliedCurvePoints);
         m_curvePlot->setPoints(m_appliedCurvePoints);
