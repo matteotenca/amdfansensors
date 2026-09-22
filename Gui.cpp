@@ -560,12 +560,38 @@ void GuiWindow::initializeTuningControls() {
         }
     }
 
+    // Block the voltage controls' signals while reconciling the offset and
+    // mirroring it into the UI. Their handlers write to the GPU and must not
+    // fire from programmatic init; the single GPU write below is the only
+    // intentional one (settings wins).
+    m_settingsWindow->ui->m_voltageOffsetCheckbox->blockSignals(true);
+    m_settingsWindow->ui->m_voltageSlider->blockSignals(true);
+    m_settingsWindow->ui->m_voltageSpinBox->blockSignals(true);
+
     try {
-        adlx_int currentOffset = m_manager.GetVoltageOffset();
-        if (currentOffset != 0) {
+        const adlx_int gpuOffset = m_manager.GetVoltageOffset();
+        QSettings settings("AmdFanSensors", "AmdFanSensors");
+        const bool hasSaved = settings.contains("voltageOffset");
+        const int saved = hasSaved ? settings.value("voltageOffset").toInt() : 0;
+
+        adlx_int target;
+        if (hasSaved) {
+            target = saved;
+            if (saved != gpuOffset) {
+                m_manager.SetVoltageOffset(saved);
+                std::cout << "Restored GPU voltage offset from settings: " << saved << " mV" << std::endl;
+            }
+        } else {
+            // First run: capture the current GPU offset as the saved baseline
+            // so settings is the source of truth from launch one.
+            target = gpuOffset;
+            settings.setValue("voltageOffset", target);
+        }
+
+        if (target != 0) {
             m_settingsWindow->ui->m_voltageOffsetCheckbox->setChecked(true);
-            m_settingsWindow->ui->m_voltageSlider->setValue(currentOffset);
-            m_settingsWindow->ui->m_voltageSpinBox->setValue(currentOffset);
+            m_settingsWindow->ui->m_voltageSlider->setValue(target);
+            m_settingsWindow->ui->m_voltageSpinBox->setValue(target);
             m_settingsWindow->ui->m_voltageSlider->setEnabled(true);
             m_settingsWindow->ui->m_voltageSpinBox->setEnabled(true);
         } else {
@@ -584,6 +610,10 @@ void GuiWindow::initializeTuningControls() {
         m_settingsWindow->ui->m_voltageSlider->setValue(0);
         m_settingsWindow->ui->m_voltageSpinBox->setValue(0);
     }
+
+    m_settingsWindow->ui->m_voltageOffsetCheckbox->blockSignals(false);
+    m_settingsWindow->ui->m_voltageSlider->blockSignals(false);
+    m_settingsWindow->ui->m_voltageSpinBox->blockSignals(false);
 
     updateCurveButtonEnabled();
 }
@@ -674,19 +704,43 @@ void GuiWindow::onZeroRpmToggled(bool checked) {
 }
 
 void GuiWindow::onVoltageOffsetToggled(bool checked) {
+    // Re-sync the controls without letting their valueChanged handlers fire
+    // (which would call SetVoltageOffset/saveVoltageOffset redundantly).
+    m_settingsWindow->ui->m_voltageSlider->blockSignals(true);
+    m_settingsWindow->ui->m_voltageSpinBox->blockSignals(true);
+
     m_settingsWindow->ui->m_voltageSlider->setEnabled(checked);
     m_settingsWindow->ui->m_voltageSpinBox->setEnabled(checked);
-    int value = checked ? m_settingsWindow->ui->m_voltageSpinBox->value() : 0;
+
+    int value = 0;
+    if (checked) {
+        // Restore the saved offset (or 0 if none) to GUI + GPU.
+        QSettings settings("AmdFanSensors", "AmdFanSensors");
+        if (settings.contains("voltageOffset"))
+            value = settings.value("voltageOffset").toInt();
+    }
+
     m_settingsWindow->ui->m_voltageSlider->setValue(value);
     m_settingsWindow->ui->m_voltageSpinBox->setValue(value);
     m_manager.SetVoltageOffset(value);
+
+    m_settingsWindow->ui->m_voltageSlider->blockSignals(false);
+    m_settingsWindow->ui->m_voltageSpinBox->blockSignals(false);
     updateCurveButtonEnabled();
 }
 
 void GuiWindow::onVoltageValueChanged(int value) {
     if (m_settingsWindow->ui->m_voltageOffsetCheckbox->isChecked())
+    {
         m_manager.SetVoltageOffset(value);
+        saveVoltageOffset(value);
+    }
     updateCurveButtonEnabled();
+}
+
+void GuiWindow::saveVoltageOffset(int value) {
+    QSettings settings("AmdFanSensors", "AmdFanSensors");
+    settings.setValue("voltageOffset", value);
 }
 
 void GuiWindow::updateCurveButtonEnabled() const {

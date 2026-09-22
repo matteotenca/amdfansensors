@@ -467,6 +467,7 @@ private slots:
     void onZeroRpmToggled(bool checked);
     void onVoltageOffsetToggled(bool checked);
     void onVoltageValueChanged(int value);
+    void saveVoltageOffset(int value);
     void onApplyCurveClicked();
     void onMonitoringToggled(bool enabled) const;
     void onHardwareStatsToggled(bool enabled) const;
