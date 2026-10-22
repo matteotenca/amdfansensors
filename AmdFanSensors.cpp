@@ -23,13 +23,16 @@ int main(int argc, char* argv[]) {
 		bool showVoltageOffset = false;
 		bool setVoltageOffset = false;
 		bool help = false;
-		bool defaultMode = true;
+		bool defaultMode = false;
 		bool showTotalRam = false;
-		bool enableGui = false;
+		bool enableGui = true;
+		bool detach = true;
+		bool consoleRequested = false;
+		bool explicitGuiRequested = false;
+		bool noGui = false;
 		int refreshRateMs = 1000;
 		int refreshRateFPSMs = 1000;
 		bool fpsOnly = false;
-		bool detach = false;
 		bool refreshRateCliProvided = false;
 		bool refreshRateFpsCliProvided = false;
 
@@ -37,20 +40,21 @@ int main(int argc, char* argv[]) {
 
 		for (int i = 1; i < argc; ++i) {
 			std::string arg = argv[i];
-			if (arg == "--show-vram" || arg == "-r") { showVram = true; defaultMode = false; }
-			else if (arg == "--show-temperature" || arg == "-t") { showTemp = true; defaultMode = false; }
-			else if (arg == "--show-voltage" || arg == "-o") { showVoltage = true; defaultMode = false; }
-			else if (arg == "--show-system-ram" || arg == "-m") { showSystemRam = true; defaultMode = false; }
-			else if (arg == "--show-zero-rpm" || arg == "-z") { showZeroRPM = true; defaultMode = false; }
-			else if (arg == "--toggle-zero-rpm" || arg == "-s") { toggleZeroRPM = true; defaultMode = false; }
+			if (arg == "--show-vram" || arg == "-r") { showVram = true; defaultMode = false; consoleRequested = true; }
+			else if (arg == "--show-temperature" || arg == "-t") { showTemp = true; defaultMode = false; consoleRequested = true; }
+			else if (arg == "--show-voltage" || arg == "-o") { showVoltage = true; defaultMode = false; consoleRequested = true; }
+			else if (arg == "--show-system-ram" || arg == "-m") { showSystemRam = true; defaultMode = false; consoleRequested = true; }
+			else if (arg == "--show-zero-rpm" || arg == "-z") { showZeroRPM = true; defaultMode = false; consoleRequested = true; }
+			else if (arg == "--toggle-zero-rpm" || arg == "-s") { toggleZeroRPM = true; defaultMode = false; consoleRequested = true; }
 			else if (arg == "--help" || arg == "-h") { help = true; break; }
-			else if (arg == "--show-fan-ramp" || arg == "-f") { showRamp = true; defaultMode = false; }
-			else if (arg == "--set-fan-ramp" || arg == "-p") { setRamp = true; defaultMode = false; }
-			else if (arg == "--set-default-ramp" || arg == "-d") { setDefaultRamp = true; defaultMode = false; }
+			else if (arg == "--show-fan-ramp" || arg == "-f") { showRamp = true; defaultMode = false; consoleRequested = true; }
+			else if (arg == "--set-fan-ramp" || arg == "-p") { setRamp = true; defaultMode = false; consoleRequested = true; }
+			else if (arg == "--set-default-ramp" || arg == "-d") { setDefaultRamp = true; defaultMode = false; consoleRequested = true; }
 			else if (arg == "--show-v-offset" || arg == "-e") {
 				if (! setVoltageOffset) {
 					showVoltageOffset = true;
 					defaultMode = false;
+					consoleRequested = true;
 				}
 			}
 			else if (arg == "--set-v-offset" || arg == "-v" ||
@@ -62,16 +66,18 @@ int main(int argc, char* argv[]) {
 					}
 					setVoltageOffset = true;
 					defaultMode = false;
+					consoleRequested = true;
 				}
 			}
-			else if (arg == "--show-total-ram" || arg == "-g") { showTotalRam = true; defaultMode = false; }
-			else if (arg == "--enable-gui" || arg == "-G") { enableGui = true; defaultMode = false; }
+			else if (arg == "--show-total-ram" || arg == "-g") { showTotalRam = true; defaultMode = false; consoleRequested = true; }
+			else if (arg == "--enable-gui" || arg == "-G") { defaultMode = false; explicitGuiRequested = true; }
 			else if (arg == "--refresh-rate" || arg == "-a=" || arg.substr(0, 3) == "-a=" || arg.substr(0, 15) == "--refresh-rate=") {
 				if (! validateRefreshRate(refreshRateMs, arg)) {
 					return 1;
 				}
 				defaultMode = false;
 				enableGui = true;
+				explicitGuiRequested = true;
 				refreshRateCliProvided = true;
 			}
 			else if (arg == "--refresh-rate-fps" || arg == "-A=" || arg.substr(0, 3) == "-A=" || arg.substr(0, 19) == "--refresh-rate-fps=") {
@@ -80,14 +86,27 @@ int main(int argc, char* argv[]) {
 				}
 				defaultMode = false;
 				enableGui = true;
+				explicitGuiRequested = true;
 				refreshRateFpsCliProvided = true;
 			}
-			else if (arg == "--fps-only" || arg == "-u") { fpsOnly = true; defaultMode = false; enableGui = true;}
-			else if (arg == "--detach" || arg == "-D") { defaultMode = false; enableGui = true; detach = true; }
+			else if (arg == "--fps-only" || arg == "-u") { fpsOnly = true; defaultMode = false; enableGui = true; explicitGuiRequested = true; }
+			else if (arg == "--detach" || arg == "-D") { defaultMode = false; enableGui = true; detach = true; explicitGuiRequested = true; }
+			else if (arg == "--no-gui") { noGui = true; }
 			else if (arg == "--gui-child") { /* internal marker for the detached GUI relaunch */ }
 			else {
 				std::cerr << "Warning: unknown argument '" << arg << "' ignored. Use --help for usage." << std::endl;
 			}
+		}
+
+		// GUI (detached, as if -D -G) is the default; console flags opt out of it.
+		if (noGui) {
+			enableGui = false;
+			detach = false;
+			if (!consoleRequested) defaultMode = true; // console dump, old no-arg behavior
+		}
+		else if (consoleRequested && !explicitGuiRequested) {
+			enableGui = false;
+			detach = false;
 		}
 
 		if (help) {
@@ -106,8 +125,9 @@ int main(int argc, char* argv[]) {
 				<< "  -v=N, --set-v-offset=N  Set voltage offset to N mV (e.g., -v=-25).\n"
 				<< "                          Note: Only negative values are accepted!\n"
 				<< "  -g, --show-total-ram    Show total system RAM (MB).\n"
-				<< "  -G, --enable-gui        Enable the GUI (default: disabled).\n"
-				<< "  -D, --detach            Force detach GUI from console (survives shell exit).\n"
+				<< "  -G, --enable-gui        Enable the GUI (default: enabled).\n"
+				<< "  -D, --detach            Detach GUI from console (default: enabled; survives shell exit).\n"
+				<< "      --no-gui            Run console-only (no GUI).\n"
 				<< "  -a=N, --refresh-rate=N  Set refresh rate in milliseconds (e.g., --refresh-rate=500).\n"
 				<< "                          Range: 100ms to 5000ms (default: 1000ms).\n"
 				<< "  -A=N, --refresh-rate-fps=N  Set FPS refresh rate in milliseconds (e.g., --refresh-rate-fps=500).\n"
