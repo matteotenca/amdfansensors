@@ -458,6 +458,9 @@ public:
     ~GuiWindow() override;
     bool OpenWin();
 
+protected:
+    void closeEvent(QCloseEvent* event) override;
+
 private slots:
     void updateHardwareMetrics() const;
     void updateFpsMetrics() const;

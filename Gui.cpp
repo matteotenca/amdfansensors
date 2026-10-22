@@ -10,6 +10,7 @@
 #include <QMessageBox>
 #include <QSettings>
 #include <QMenuBar>
+#include <QCloseEvent>
 
 static const QString lightStyleSheet() {
     return R"css(/* === Global Theme Variables === */
@@ -346,6 +347,11 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
         s.setValue("stayOnTop", checked);
     });
 
+    // Restore saved geometry of the Settings window (applies on its next open).
+    const QByteArray settingsGeometry = settings.value("settingsWindowGeometry").toByteArray();
+    if (!settingsGeometry.isEmpty())
+        m_settingsWindow->restoreGeometry(settingsGeometry);
+
     // Restore saved collapsed states of the collapsible group boxes.
     for (const QString& name : { QStringLiteral("m_hardwareGroup"), QStringLiteral("m_controlGroup"),
                                   QStringLiteral("m_fpsGroup"), QStringLiteral("m_windowGroup"),
@@ -482,13 +488,26 @@ bool GuiWindow::OpenWin() {
         onMonitoringToggled(ui->m_enableMonitoringCheckbox->isChecked());
         onHardwareStatsToggled(ui->m_enableHardwareStatsCheckbox->isChecked());
         this->show();
-        this->adjustSize();
+        QSettings s("AmdFanSensors", "AmdFanSensors");
+        const QByteArray geometry = s.value("windowGeometry").toByteArray();
+        if (!geometry.isEmpty())
+            this->restoreGeometry(geometry);
+        else
+            this->adjustSize();
     }
     catch (const std::exception& e) {
         std::cerr << "Fatal Error: " << e.what() << std::endl;
         return false;
     }
     return true;
+}
+
+void GuiWindow::closeEvent(QCloseEvent* event) {
+    QSettings s("AmdFanSensors", "AmdFanSensors");
+    s.setValue("windowGeometry", saveGeometry());
+    if (m_settingsWindow)
+        s.setValue("settingsWindowGeometry", m_settingsWindow->saveGeometry());
+    event->accept();
 }
 
 void GuiWindow::setTheme(bool light) {
