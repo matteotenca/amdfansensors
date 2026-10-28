@@ -203,6 +203,8 @@ public:
     bool IsDefaultFanCurve(const std::vector<std::pair<int, int>>& points) const;
     std::vector<std::pair<int, int>> GetDefaultFanCurvePoints() const;
     bool GetFanRanges(int& minTemp, int& maxTemp, int& minSpeed, int& maxSpeed) const;
+    // Number of curve points the GPU's fan tuning supports. 0 on failure.
+    int GetFanTuningSlotCount();
 
 private:
     // Pointers are mutable to allow lazy-loading initialization within const methods

@@ -575,6 +575,19 @@ bool GpuManager::SetFanCurvePoints(const std::vector<std::pair<int, int>>& point
     return false;
 }
 
+int GpuManager::GetFanTuningSlotCount() {
+    EnsureFanTuning();
+    if (!m_manualFanTuning) return 0;
+
+    IADLXManualFanTuningStateListPtr states;
+    ADLX_RESULT res = m_manualFanTuning->GetEmptyFanTuningStates(&states);
+    if (ADLX_FAILED(res)) {
+        std::cerr << "[GpuManager] GetFanTuningSlotCount: failed to get empty fan tuning states" << std::endl;
+        return 0;
+    }
+    return states->Size();
+}
+
 bool GpuManager::IsDefaultFanCurve(const std::vector<std::pair<int, int>>& points) const {
     constexpr int pointCount = sizeof(m_defaultSpeeds) / sizeof(m_defaultSpeeds[0]);
     if ((int)points.size() != pointCount) return false;

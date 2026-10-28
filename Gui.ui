@@ -538,14 +538,14 @@ QSpinBox:disabled {
        <property name="spacing">
         <number>10</number>
        </property>
-        <item row="2" column="0" colspan="2">
-         <widget class="QPushButton" name="m_applyTuningButton">
-          <property name="text">
-           <string>Apply Fan Curve</string>
-          </property>
-         </widget>
-        </item>
-       </layout>
+         <item row="2" column="0" colspan="2">
+          <widget class="QPushButton" name="m_applyTuningButton">
+           <property name="text">
+            <string>Apply Fan Curve</string>
+           </property>
+          </widget>
+         </item>
+         </layout>
       </widget>
      </item>
     <item>

@@ -9,6 +9,10 @@
 #include <QSpinBox>
 #include <QMessageBox>
 #include <QSettings>
+#include <QFile>
+#include <QFileDialog>
+#include <QList>
+#include <QTextStream>
 #include <QMenuBar>
 #include <QCloseEvent>
 
@@ -381,12 +385,9 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
                                 ? LoadSavedCurvePoints()
                                 : m_curvePlot->points();
 
-    int minTemp = 0, maxTemp = 100, minSpeed = 0, maxSpeed = 100;
-    m_manager.GetFanRanges(minTemp, maxTemp, minSpeed, maxSpeed);
-    const int dragMinSpeed = minSpeed;   // GPU's real minimum, kept for dragging
-    minSpeed = 0;                        // display axis starts at 0%
-    m_curvePlot->setRanges(minTemp, maxTemp, minSpeed, maxSpeed);
-    m_curvePlot->setDragSpeedRange(dragMinSpeed, maxSpeed);
+    m_manager.GetFanRanges(m_curveMinTemp, m_curveMaxTemp, m_curveMinDragSpeed, m_curveMaxDragSpeed);
+    m_curvePlot->setRanges(m_curveMinTemp, m_curveMaxTemp, 0, m_curveMaxDragSpeed); // display axis starts at 0%
+    m_curvePlot->setDragSpeedRange(m_curveMinDragSpeed, m_curveMaxDragSpeed);
     m_curvePlot->setEditable(m_settingsWindow->ui->m_fanCurveCheckbox->isChecked());
     connect(m_curvePlot, &CurvePlotWidget::pointsChanged, this, &GuiWindow::onCurveEdited);
     connect(m_settingsWindow->ui->m_fanCurveCheckbox, &QCheckBox::toggled, this, &GuiWindow::onFanCurveToggled);
@@ -528,6 +529,8 @@ void GuiWindow::initializeTuningControls() {
     connect(m_settingsWindow->ui->m_zeroRpmCheckbox, &QCheckBox::toggled, this, &GuiWindow::onZeroRpmToggled);
     connect(m_settingsWindow->ui->m_fanCurveCheckbox, &QCheckBox::toggled, this, &GuiWindow::onFanCurveToggled);
     connect(ui->m_applyTuningButton, &QPushButton::clicked, this, &GuiWindow::onApplyCurveClicked);
+    connect(m_settingsWindow->ui->m_exportCurveButton, &QPushButton::clicked, this, &GuiWindow::onExportCurveClicked);
+    connect(m_settingsWindow->ui->m_importCurveButton, &QPushButton::clicked, this, &GuiWindow::onImportCurveClicked);
 
     try {
         bool zeroRpmSupported = m_manager.IsZeroRPMSupported();
@@ -794,6 +797,131 @@ void GuiWindow::onApplyCurveClicked() {
         std::cerr << "Error applying fan curve: unknown error" << std::endl;
         QMessageBox::critical(this, "Curve Error", "Failed to apply fan curve: unknown error.");
     }
+}
+
+void GuiWindow::onExportCurveClicked() {
+    const std::vector<std::pair<int, int>> points = m_curvePlot->points();
+    if (points.empty()) {
+        QMessageBox::warning(this, "Export Error",
+                             QStringLiteral("No fan curve to export."));
+        return;
+    }
+
+    const QString filePath = QFileDialog::getSaveFileName(
+        this, QStringLiteral("Export Fan Curve"),
+        QStringLiteral("fan_curve.afcc"),
+        QStringLiteral("AmdFanSensors fan curves (*.afcc);;All files (*)"));
+    if (filePath.isEmpty())
+        return;
+
+    QFile file(filePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QMessageBox::critical(this, "Export Error",
+                              QString(QStringLiteral("Failed to open file for writing:\n%1").arg(filePath)));
+        return;
+    }
+
+    QTextStream out(&file);
+    out << "# AmdFanSensors fan curve (tempC speedPercent)\n";
+    for (const auto& p : points)
+        out << p.first << ' ' << p.second << '\n';
+    out.flush();
+    file.close();
+
+    std::cout << "Exported fan curve to: " << filePath.toStdString() << std::endl;
+}
+
+void GuiWindow::onImportCurveClicked() {
+    const QString filePath = QFileDialog::getOpenFileName(
+        this, QStringLiteral("Import Fan Curve"),
+        QStringLiteral("fan_curve.afcc"),
+        QStringLiteral("AmdFanSensors fan curves (*.afcc);;All files (*)"));
+    if (filePath.isEmpty())
+        return;
+
+    std::vector<std::pair<int, int>> points;
+    if (!importCurve(filePath, points))
+        return;
+
+    m_curvePlot->setPoints(points);
+    m_stashedCustomPoints = points;
+    m_curveEdited = true;
+    SaveCurvePoints(points);
+    updateCurveButtonEnabled();
+
+    std::cout << "Imported fan curve: " << points.size() << " points." << std::endl;
+}
+
+bool GuiWindow::importCurve(const QString& path, std::vector<std::pair<int, int>>& points) {
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QMessageBox::critical(this, "Import Error",
+                              QString(QStringLiteral("Failed to open file:\n%1").arg(path)));
+        return false;
+    }
+
+    points.clear();
+    const QString content = QString::fromUtf8(file.readAll());
+    const QList<QString> lines = content.split('\n');
+    for (int i = 0; i < lines.size(); ++i) {
+        QString trimmed = lines[i].trimmed();
+        if (trimmed.isEmpty() || trimmed.startsWith('#'))
+            continue;
+
+        const QStringList fields = trimmed.replace('\t', ' ').split(' ', Qt::SkipEmptyParts);
+        if (fields.size() != 2) {
+            QMessageBox::critical(this, "Import Error",
+                QString(QStringLiteral("Line %1 must contain exactly two integers (tempC speedPercent).").arg(i + 1)));
+            return false;
+        }
+
+        bool okT = false, okS = false;
+        const int t = fields[0].toInt(&okT);
+        const int s = fields[1].toInt(&okS);
+        if (!okT || !okS) {
+            QMessageBox::critical(this, "Import Error",
+                QString(QStringLiteral("Line %1: both values must be integers.").arg(i + 1)));
+            return false;
+        }
+
+        if (!points.empty() && t < points.back().first) {
+            QMessageBox::critical(this, "Import Error",
+                QString(QStringLiteral("Line %1: temperatures must not decrease (got %2 after %3).")
+                    .arg(i + 1).arg(t).arg(points.back().first)));
+            return false;
+        }
+
+        if (t < m_curveMinTemp || t > m_curveMaxTemp) {
+            QMessageBox::critical(this, "Import Error",
+                QString(QStringLiteral("Line %1: temperature %2 out of range (%3 to %4).")
+                    .arg(i + 1).arg(t).arg(m_curveMinTemp).arg(m_curveMaxTemp)));
+            return false;
+        }
+
+        if (s < m_curveMinDragSpeed || s > m_curveMaxDragSpeed) {
+            QMessageBox::critical(this, "Import Error",
+                QString(QStringLiteral("Line %1: fan speed %2 out of range (%3 to %4).")
+                    .arg(i + 1).arg(s).arg(m_curveMinDragSpeed).arg(m_curveMaxDragSpeed)));
+            return false;
+        }
+
+        points.emplace_back(t, s);
+    }
+
+    if (points.empty()) {
+        QMessageBox::critical(this, "Import Error",
+                              QStringLiteral("File contains no curve points."));
+        return false;
+    }
+
+    const int slotCount = m_manager.GetFanTuningSlotCount();
+    if (slotCount > 0 && static_cast<size_t>(points.size()) > static_cast<size_t>(slotCount)) {
+        QMessageBox::critical(this, "Import Error",
+            QString(QStringLiteral("Curve has %1 points but the GPU supports only %2.").arg(points.size()).arg(slotCount)));
+        return false;
+    }
+
+    return true;
 }
 
 void GuiWindow::onMonitoringToggled(bool enabled) const {

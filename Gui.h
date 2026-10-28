@@ -471,8 +471,10 @@ private slots:
     void onVoltageOffsetToggled(bool checked);
     void onVoltageValueChanged(int value);
     void saveVoltageOffset(int value);
-    void onApplyCurveClicked();
-    void onMonitoringToggled(bool enabled) const;
+        void onApplyCurveClicked();
+        void onExportCurveClicked();
+        void onImportCurveClicked();
+        void onMonitoringToggled(bool enabled) const;
     void onHardwareStatsToggled(bool enabled) const;
     void onHwRefreshSliderChanged(int value);
     void onFpsRefreshSliderChanged(int value);
@@ -483,8 +485,9 @@ private:
     void initializeTuningControls();
     void initializeRefreshRateControls();
     void updateCurveButtonEnabled() const;
-    std::vector<std::pair<int, int>> LoadSavedCurvePoints() const;
-    void SaveCurvePoints(const std::vector<std::pair<int, int>>& points) const;
+        std::vector<std::pair<int, int>> LoadSavedCurvePoints() const;
+        void SaveCurvePoints(const std::vector<std::pair<int, int>>& points) const;
+        bool importCurve(const QString& path, std::vector<std::pair<int, int>>& points);
     GpuManager& m_manager;
     QTimer* m_metricsTimer;
     QTimer* m_fpsTimer;
@@ -498,11 +501,13 @@ private:
     bool m_hwRateProvided;
     bool m_fpsRateProvided;
 
-    bool m_curveEdited = false;
-    std::vector<std::pair<int, int>> m_appliedCurvePoints;
-    std::vector<std::pair<int, int>> m_stashedCustomPoints;
+        bool m_curveEdited = false;
+        std::vector<std::pair<int, int>> m_appliedCurvePoints;
+        std::vector<std::pair<int, int>> m_stashedCustomPoints;
+        int m_curveMinTemp = 25, m_curveMaxTemp = 100;
+        int m_curveMinDragSpeed = 0, m_curveMaxDragSpeed = 100;
 
-    CurvePlotWidget* m_curvePlot;
+        CurvePlotWidget* m_curvePlot;
     Ui::GuiWindow *ui;
     SettingsWindow* m_settingsWindow;
     QString m_darkStyleSheet;
