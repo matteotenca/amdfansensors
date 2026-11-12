@@ -1,7 +1,7 @@
 #include "Gui.h"
 #include "ui_Gui.h"
 #include "ui_SettingsWindow.h"
-#include <iostream>
+#include <QDebug>
 #include <QString>
 #include <QCheckBox>
 #include <QPushButton>
@@ -307,8 +307,8 @@ QSpinBox:disabled {
 )css";
 }
 
-GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS, bool fpsOnly, bool hwRateProvided, bool fpsRateProvided, QWidget* parent)
-    : QMainWindow(parent), m_manager(manager), m_fpsOnlyMode(fpsOnly), m_refreshRate(refreshRateMs), m_refreshRateFPS(refreshRateFPS), m_refreshRateCliDefault(refreshRateMs), m_refreshRateFpsCliDefault(refreshRateFPS), m_hwRateProvided(hwRateProvided), m_fpsRateProvided(fpsRateProvided), ui(new Ui::GuiWindow)  {
+GuiWindow::GuiWindow(GpuManager& manager, QWidget* parent)
+    : QMainWindow(parent), m_manager(manager), m_refreshRate(1000), m_refreshRateFPS(1000), ui(new Ui::GuiWindow)  {
 
     ui->setupUi(this);
     setWindowIcon(QIcon(":/icons/icon.ico"));
@@ -412,13 +412,6 @@ GuiWindow::GuiWindow(GpuManager& manager, int refreshRateMs, int refreshRateFPS,
     initializeTuningControls();
     initializeRefreshRateControls();
 
-    if (m_fpsOnlyMode) {
-        ui->m_hardwareGroup->hide();
-        ui->m_controlGroup->hide();
-        m_settingsWindow->ui->m_hwRefreshLabelTitle->setEnabled(false);
-        m_settingsWindow->ui->m_hwRefreshSlider->setEnabled(false);
-        m_settingsWindow->ui->m_hwRefreshValueLabel->setEnabled(false);
-    }
 }
 
 GuiWindow::~GuiWindow() {
@@ -430,8 +423,6 @@ void GuiWindow::onResetFpsClicked() const {
 }
 
 void GuiWindow::updateHardwareMetrics() const {
-    if (m_fpsOnlyMode) return;
-
     m_manager.UpdateGpuTempStruct(false);
     const auto& info = m_manager.GetTemperatureInfo();
 
@@ -497,7 +488,7 @@ bool GuiWindow::OpenWin() {
             this->adjustSize();
     }
     catch (const std::exception& e) {
-        std::cerr << "Fatal Error: " << e.what() << std::endl;
+        qWarning().noquote() << "Fatal Error:" << e.what();
         return false;
     }
     return true;
@@ -541,11 +532,11 @@ void GuiWindow::initializeTuningControls() {
             m_settingsWindow->ui->m_zeroRpmCheckbox->setText("Zero RPM (Unsupported)");
         }
     } catch (const std::exception& e) {
-        std::cerr << "[Gui] Failed to query ZeroRPM support: " << e.what() << std::endl;
+        qWarning().noquote() << "[Gui] Failed to query ZeroRPM support:" << e.what();
         m_settingsWindow->ui->m_zeroRpmCheckbox->setEnabled(false);
         m_settingsWindow->ui->m_zeroRpmCheckbox->setText("Zero RPM (Unsupported)");
     } catch (...) {
-        std::cerr << "[Gui] Failed to query ZeroRPM support: unknown error" << std::endl;
+        qWarning().noquote() << "[Gui] Failed to query ZeroRPM support: unknown error";
         m_settingsWindow->ui->m_zeroRpmCheckbox->setEnabled(false);
         m_settingsWindow->ui->m_zeroRpmCheckbox->setText("Zero RPM (Unsupported)");
     }
@@ -557,11 +548,11 @@ void GuiWindow::initializeTuningControls() {
         if (maxVolt > 0) maxVolt = 0; 
         if (minVolt > 0) minVolt = -200;
     } catch (const std::exception& e) {
-        std::cerr << "[Gui] Failed to query voltage offset range: " << e.what() << std::endl;
+        qWarning().noquote() << "[Gui] Failed to query voltage offset range:" << e.what();
         minVolt = -200;
         maxVolt = 0;
     } catch (...) {
-        std::cerr << "[Gui] Failed to query voltage offset range: unknown error" << std::endl;
+        qWarning().noquote() << "[Gui] Failed to query voltage offset range: unknown error";
         minVolt = -200;
         maxVolt = 0;
     }
@@ -578,7 +569,7 @@ void GuiWindow::initializeTuningControls() {
         const auto gpuPoints = m_curvePlot->points();
         if (LoadSavedCurvePoints() != gpuPoints) {
             SaveCurvePoints(gpuPoints);
-            std::cout << "Synced saved custom fan curve with the GPU curve." << std::endl;
+            qInfo().noquote() << "Synced saved custom fan curve with the GPU curve.";
         }
     }
 
@@ -601,7 +592,7 @@ void GuiWindow::initializeTuningControls() {
             target = saved;
             if (saved != gpuOffset) {
                 m_manager.SetVoltageOffset(saved);
-                std::cout << "Restored GPU voltage offset from settings: " << saved << " mV" << std::endl;
+                qInfo().noquote() << "Restored GPU voltage offset from settings:" << saved << "mV";
             }
         } else {
             // First run: capture the current GPU offset as the saved baseline
@@ -622,12 +613,12 @@ void GuiWindow::initializeTuningControls() {
             m_settingsWindow->ui->m_voltageSpinBox->setValue(0);
         }
     } catch (const std::exception& e) {
-        std::cerr << "[Gui] Failed to query current voltage offset: " << e.what() << std::endl;
+        qWarning().noquote() << "[Gui] Failed to query current voltage offset:" << e.what();
         m_settingsWindow->ui->m_voltageOffsetCheckbox->setChecked(false);
         m_settingsWindow->ui->m_voltageSlider->setValue(0);
         m_settingsWindow->ui->m_voltageSpinBox->setValue(0);
     } catch (...) {
-        std::cerr << "[Gui] Failed to query current voltage offset: unknown error" << std::endl;
+        qWarning().noquote() << "[Gui] Failed to query current voltage offset: unknown error";
         m_settingsWindow->ui->m_voltageOffsetCheckbox->setChecked(false);
         m_settingsWindow->ui->m_voltageSlider->setValue(0);
         m_settingsWindow->ui->m_voltageSpinBox->setValue(0);
@@ -648,12 +639,9 @@ void GuiWindow::initializeRefreshRateControls() {
     int savedHwRate = settings.value("refreshRate", 1000).toInt();
     int savedFpsRate = settings.value("refreshRateFPS", 1000).toInt();
 
-    // Use CLI-provided value when given; otherwise fall back to the saved value.
-    int hwRate = m_hwRateProvided ? m_refreshRateCliDefault : savedHwRate;
-    int fpsRate = m_fpsRateProvided ? m_refreshRateFpsCliDefault : savedFpsRate;
+    int hwRate = savedHwRate;
+    int fpsRate = savedFpsRate;
 
-    m_refreshRateCliDefault = hwRate;
-    m_refreshRateFpsCliDefault = fpsRate;
     m_refreshRate = hwRate;
     m_refreshRateFPS = fpsRate;
 
@@ -784,17 +772,17 @@ void GuiWindow::onApplyCurveClicked() {
         m_curveEdited = false;
         updateCurveButtonEnabled();
 
-        std::cout << "Applied fan curve: " << m_appliedCurvePoints.size() << " points." << std::endl;
+        qInfo().noquote() << "Applied fan curve:" << m_appliedCurvePoints.size() << "points.";
 
         ui->m_applyTuningButton->setText("Applied!");
         QTimer::singleShot(2500, ui->m_applyTuningButton, [this]() { ui->m_applyTuningButton->setText("Apply Fan Curve"); });
     } catch (const std::exception& e) {
-        std::cerr << "Error applying fan curve: " << e.what() << std::endl;
+        qWarning().noquote() << "Error applying fan curve:" << e.what();
         QMessageBox::critical(this, "Curve Error",
             QString("Failed to apply fan curve:\n%1").arg(e.what()));
     }
     catch (...) {
-        std::cerr << "Error applying fan curve: unknown error" << std::endl;
+        qWarning().noquote() << "Error applying fan curve: unknown error";
         QMessageBox::critical(this, "Curve Error", "Failed to apply fan curve: unknown error.");
     }
 }
@@ -828,7 +816,7 @@ void GuiWindow::onExportCurveClicked() {
     out.flush();
     file.close();
 
-    std::cout << "Exported fan curve to: " << filePath.toStdString() << std::endl;
+    qInfo().noquote() << "Exported fan curve to:" << filePath;
 }
 
 void GuiWindow::onImportCurveClicked() {
@@ -849,7 +837,7 @@ void GuiWindow::onImportCurveClicked() {
     SaveCurvePoints(points);
     updateCurveButtonEnabled();
 
-    std::cout << "Imported fan curve: " << points.size() << " points." << std::endl;
+    qInfo().noquote() << "Imported fan curve:" << points.size() << "points.";
 }
 
 bool GuiWindow::importCurve(const QString& path, std::vector<std::pair<int, int>>& points) {
@@ -933,7 +921,7 @@ void GuiWindow::onMonitoringToggled(bool enabled) const {
 }
 
 void GuiWindow::onHardwareStatsToggled(bool enabled) const {
-    if (enabled && !m_fpsOnlyMode) {
+    if (enabled) {
         m_metricsTimer->start(m_refreshRate);
         m_curvePlot->setCurrentPointVisible(true);
     } else {

@@ -171,31 +171,19 @@ public:
     const GpuStatusInfo& GetStatusInfo() const;
     const GlobalStatusInfo& GetTemperatureInfo() const;
     void ResetFpsStats();
-    adlx_int GetUsedSystemRam() const;
-    int GetUnattended() const;
     // Monitoring methods - marked const as they don't modify state
-    void ShowGPUVRAM() const;
-    void ShowGPUMemoryTemperature() const;
     void UpdateGpuTempStruct(bool fpsOnly = false);
     void UpdateGpuFpsMetrics();
     void UpdateGpuHardwareMetrics() const;
-    void ShowGPUVoltage() const;
-    void ShowSystemRAM() const;
-    void ShowTotalSystemRam() const;
 
     // ZeroRPM specific methods - split into read and toggle
-    void ShowZeroRPMStatus(); // Reads status from struct
-    void ToggleZeroRPM(); // Toggles ZeroRPM state
     bool IsZeroRPMSupported();
     bool GetZeroRPMState();
     void SetZeroRPM(bool enable);
     bool IsFanCurveDefaultOne(); // Added: Compares current states to default values
 
     // Tuning methods
-    void ShowGetAndSetFan(bool setRamp, bool defaultRamp);
     void SetVoltageOffset(adlx_int voltage) const; // UPDATED: Added voltage parameter
-    void ShowFanPercent() const;
-    void ShowGPUUsage() const;
     adlx_int GetVoltageOffset() const; // NEW: Getter for voltage offset
     bool GetVoltageOffsetRange(adlx_int& minVolt, adlx_int& maxVolt) const;
     std::vector<std::pair<int, int>> GetFanCurvePoints();
@@ -220,18 +208,12 @@ private:
     GlobalStatusInfo m_temperatureInfo; // Temperature information struct
 
     // Lazy loading helpers
-    // void EnsureAllMetrics() const;
     void EnsurePerfServices() const;
     void EnsureTuningService() const;
     void EnsureFanTuning();
     void EnsureGfxTuning() const;
     bool ApplyFanTuningStates(const adlx_int* speeds, const adlx_int* temps, adlx_uint count);
-    IADLXGPUMetricsPtr GetCurrentGpuMetrics() const;
     void EnsureSystemMetricsSupport() const;
-    IADLXSystemMetricsPtr GetCurrentSystemMetrics() const;
-    adlx_int ReadUsedSystemRam(const IADLXSystemMetricsPtr& systemMetrics) const;
-    adlx_int GetFanPercent() const;
-    adlx_double GetGPUUsage() const;
     IADLXAllMetricsPtr GetCurrentAllMetrics() const;
 
     static constexpr int m_defaultSpeeds[5] = { 30, 44, 58, 72, 100 };

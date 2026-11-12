@@ -1,7 +1,0 @@
-<Solution>
-  <Configurations>
-    <Platform Name="x64" />
-    <Platform Name="x86" />
-  </Configurations>
-  <Project Path="AmdFanSensors.vcxproj" Id="90afd641-ed92-456d-8a70-724b3927f87d" />
-</Solution>

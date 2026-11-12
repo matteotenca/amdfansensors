@@ -10,7 +10,6 @@
 #include <QPainter>
 #include <QMouseEvent>
 #include <QGroupBox>
-#include <QToolButton>
 #include <QSettings>
 #include <QLayout>
 #include <QBoxLayout>
@@ -345,13 +344,12 @@ private:
 class CollapsibleGroupBox : public QGroupBox {
     Q_OBJECT
 public:
-    explicit CollapsibleGroupBox(QWidget* parent = nullptr) : QGroupBox(parent) { initToggle(); }
-    explicit CollapsibleGroupBox(const QString& title, QWidget* parent = nullptr) : QGroupBox(title, parent) { initToggle(); }
+    explicit CollapsibleGroupBox(QWidget* parent = nullptr) : QGroupBox(parent) { setMouseTracking(true); }
+    explicit CollapsibleGroupBox(const QString& title, QWidget* parent = nullptr) : QGroupBox(title, parent) { setMouseTracking(true); }
 
     void setCollapsed(bool collapsed) {
         if (m_collapsed == collapsed) return;
         m_collapsed = collapsed;
-        m_toggle->setText(collapsed ? QString::fromUtf8("\u25B2") : QString::fromUtf8("\u25BC"));
         if (collapsed) {
             setMaximumHeight(titleBandHeight());
             setChildrenVisible(false);
@@ -360,16 +358,41 @@ public:
             setMaximumHeight(QWIDGETSIZE_MAX);
             updateGeometry();
         }
+        update();
         resizeTopLevel();
     }
 
-    bool isCollapsed() const { return m_collapsed; }
 
 protected:
     void resizeEvent(QResizeEvent* event) override {
         QGroupBox::resizeEvent(event);
-        positionToggle();
         if (m_collapsed) setMaximumHeight(titleBandHeight());
+    }
+
+    // Visual hint that the title bar is clickable: a chevron at its right end
+    // (down = expanded, up = collapsed) and a pointing-hand cursor over the band.
+    void paintEvent(QPaintEvent* event) override {
+        QGroupBox::paintEvent(event);
+        QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing);
+        QColor c = palette().color(QPalette::WindowText);
+        c.setAlpha(170);
+        p.setPen(QPen(c, 1.6, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        const qreal cx = width() - 16;
+        const qreal cy = 12 + (fontMetrics().height() + 4) / 2.0;
+        const qreal d = m_collapsed ? -3.0 : 3.0;
+        p.drawPolyline(QPolygonF{ QPointF(cx - 5, cy - d / 2), QPointF(cx, cy + d / 2), QPointF(cx + 5, cy - d / 2) });
+    }
+
+    void mouseMoveEvent(QMouseEvent* event) override {
+        if (event->pos().y() < titleBandHeight()) setCursor(Qt::PointingHandCursor);
+        else unsetCursor();
+        QGroupBox::mouseMoveEvent(event);
+    }
+
+    void leaveEvent(QEvent* event) override {
+        unsetCursor();
+        QGroupBox::leaveEvent(event);
     }
 
     void mousePressEvent(QMouseEvent* event) override {
@@ -382,16 +405,6 @@ protected:
     }
 
 private:
-    void initToggle() {
-        m_toggle = new QToolButton(this);
-        m_toggle->setAutoRaise(true);
-        m_toggle->setFixedSize(18, 18);
-        m_toggle->setText(QString::fromUtf8("\u25BC"));
-        m_toggle->setCursor(Qt::PointingHandCursor);
-        m_toggle->setToolTip("Collapse / expand");
-        connect(m_toggle, &QToolButton::clicked, this, [this]() { toggleCollapsed(); });
-    }
-
     void toggleCollapsed() {
         setCollapsed(!m_collapsed);
         QSettings s("AmdFanSensors", "AmdFanSensors");
@@ -401,8 +414,7 @@ private:
     void setChildrenVisible(bool visible) {
         const auto children = findChildren<QWidget*>();
         for (QWidget* w : children)
-            if (w != m_toggle)
-                w->setVisible(visible);
+            w->setVisible(visible);
     }
 
     void resizeTopLevel() {
@@ -434,14 +446,8 @@ private:
         }
     }
 
-    void positionToggle() {
-        const int btnY = 12 + (fontMetrics().height() + 4 - m_toggle->height()) / 2;
-        m_toggle->move(width() - m_toggle->width() - 8, qMax(0, btnY));
-    }
-
     int titleBandHeight() const { return fontMetrics().height() + 18; }
 
-    QToolButton* m_toggle = nullptr;
     bool m_collapsed = false;
 };
 
@@ -454,7 +460,7 @@ public:
 class GuiWindow : public QMainWindow {
     Q_OBJECT
 public:
-    explicit GuiWindow(GpuManager& manager,  int refreshRateMs, int refreshRateFPS, bool fpsOnly, bool hwRateProvided, bool fpsRateProvided, QWidget* parent = nullptr);
+    explicit GuiWindow(GpuManager& manager, QWidget* parent = nullptr);
     ~GuiWindow() override;
     bool OpenWin();
 
@@ -491,15 +497,10 @@ private:
     GpuManager& m_manager;
     QTimer* m_metricsTimer;
     QTimer* m_fpsTimer;
-    bool m_fpsOnlyMode = false;
 
     int m_refreshRate;
     int m_refreshRateFPS;
 
-    int m_refreshRateCliDefault;
-    int m_refreshRateFpsCliDefault;
-    bool m_hwRateProvided;
-    bool m_fpsRateProvided;
 
         bool m_curveEdited = false;
         std::vector<std::pair<int, int>> m_appliedCurvePoints;

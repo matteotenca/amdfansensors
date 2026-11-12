@@ -5,7 +5,6 @@
 /.vs/
 /.proxyai/
 /.idea/
-/vcpkg_installed/
 /imgui.ini
 /*.bak
 
@@ -27,3 +26,5 @@
 /.opencode/
 /AGENTS.md
 /build.bat
+/trash/
+/vcpkg_installed/
