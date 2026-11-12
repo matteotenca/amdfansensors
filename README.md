@@ -20,6 +20,8 @@ It is a pure GUI application: it takes no command-line arguments and opens no co
 - [Project layout](#project-layout)
 - [Troubleshooting](#troubleshooting)
 - [Notes and limitations](#notes-and-limitations)
+- [Author](#author)
+- [License](#license)
 
 ## Features
 
@@ -209,3 +211,17 @@ Diagnostic messages use Qt logging (`qInfo` / `qWarning`). Because the app has n
 - Voltage offsets are limited to zero or negative values.
 - Tuning writes to the GPU; behaviour after a reboot or driver restart depends on the driver, and the app re-applies the saved voltage offset at start-up.
 - The ADLX SDK is subject to its own licence; it is not redistributed with this project: its headers and helper sources (`ADLXHelper.cpp`, `WinAPIs.cpp`) are compiled straight from your local SDK copy.
+
+## Author
+
+Matteo Tenca — [matteo.tenca@gmail.com](mailto:matteo.tenca@gmail.com)
+
+Bug reports, questions and suggestions are welcome by email.
+
+## License
+
+Copyright (C) 2026 Matteo Tenca
+
+AmdFanSensors is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version (`GPL-3.0-or-later`). It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE.txt](LICENSE.txt) for the full text.
+
+The ADLX SDK, which is needed to build the project, is not covered by this licence; see its own licence agreement.
