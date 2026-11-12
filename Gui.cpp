@@ -1,4 +1,8 @@
 #include "Gui.h"
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 #include "ui_Gui.h"
 #include "ui_SettingsWindow.h"
 #include <QDebug>
@@ -14,6 +18,9 @@
 #include <QList>
 #include <QTextStream>
 #include <QMenuBar>
+#include <QVBoxLayout>
+#include <QAbstractButton>
+#include <QCursor>
 #include <QCloseEvent>
 
 static const QString lightStyleSheet() {
@@ -311,7 +318,7 @@ GuiWindow::GuiWindow(GpuManager& manager, QWidget* parent)
     : QMainWindow(parent), m_manager(manager), m_refreshRate(1000), m_refreshRateFPS(1000), ui(new Ui::GuiWindow)  {
 
     ui->setupUi(this);
-    setWindowIcon(QIcon(":/icons/icon.ico"));
+    setWindowIcon(QIcon(":/icons/icon.png"));
     m_darkStyleSheet = this->styleSheet();
 
     m_settingsWindow = new SettingsWindow(this);
@@ -322,9 +329,19 @@ GuiWindow::GuiWindow(GpuManager& manager, QWidget* parent)
     QMenu* fileMenu = menuBar->addMenu(QStringLiteral("File"));
     QAction* settingsAction = new QAction(QStringLiteral("Settings"), fileMenu);
     fileMenu->addAction(settingsAction);
-    setMenuBar(menuBar);
     menuBar->setMinimumHeight(30);
-    menuBar->show();
+    setWindowFlag(Qt::FramelessWindowHint);
+    m_titleBar = new TitleBar(this, true);
+    auto* menuArea = new QWidget(this);
+    auto* menuLayout = new QVBoxLayout(menuArea);
+    menuLayout->setContentsMargins(0, 0, 0, 0);
+    menuLayout->setSpacing(0);
+    menuLayout->addWidget(m_titleBar);
+    menuLayout->addWidget(menuBar);
+    setMenuWidget(menuArea);
+    m_settingsWindow->setWindowIcon(windowIcon());
+    m_settingsWindow->titleBar = new TitleBar(m_settingsWindow, false);
+    m_settingsWindow->setMenuWidget(m_settingsWindow->titleBar);
     connect(settingsAction, &QAction::triggered, this, &GuiWindow::onOpenSettings);
 
     m_metricsTimer = new QTimer(this);
@@ -502,7 +519,34 @@ void GuiWindow::closeEvent(QCloseEvent* event) {
     event->accept();
 }
 
+bool frameHitTest(QWidget* window, QWidget* titleBar, void* message, qintptr* result) {
+    const MSG* msg = static_cast<const MSG*>(message);
+    if (msg->message != WM_NCHITTEST) return false;
+    const QPoint p = window->mapFromGlobal(QCursor::pos());
+    if (!window->isMaximized()) {
+        const int b = 6;
+        const bool l = p.x() < b, r = p.x() >= window->width() - b;
+        const bool t = p.y() < b, bt = p.y() >= window->height() - b;
+        if (t && l) { *result = HTTOPLEFT; return true; }
+        if (t && r) { *result = HTTOPRIGHT; return true; }
+        if (bt && l) { *result = HTBOTTOMLEFT; return true; }
+        if (bt && r) { *result = HTBOTTOMRIGHT; return true; }
+        if (l) { *result = HTLEFT; return true; }
+        if (r) { *result = HTRIGHT; return true; }
+        if (t) { *result = HTTOP; return true; }
+        if (bt) { *result = HTBOTTOM; return true; }
+    }
+    const QPoint tp = titleBar->mapFrom(window, p);
+    if (titleBar->rect().contains(tp)) {
+        *result = qobject_cast<QAbstractButton*>(titleBar->childAt(tp)) ? HTCLIENT : HTCAPTION;
+        return true;
+    }
+    return false;
+}
+
 void GuiWindow::setTheme(bool light) {
+    if (m_titleBar) m_titleBar->setTheme(light);
+    if (m_settingsWindow && m_settingsWindow->titleBar) m_settingsWindow->titleBar->setTheme(light);
     const QString style = light ? lightStyleSheet() : m_darkStyleSheet;
     setStyleSheet(style);
     if (m_settingsWindow)

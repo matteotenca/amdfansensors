@@ -10,6 +10,9 @@
 #include <QPainter>
 #include <QMouseEvent>
 #include <QGroupBox>
+#include <QPushButton>
+#include <QLabel>
+#include <QHBoxLayout>
 #include <QSettings>
 #include <QLayout>
 #include <QBoxLayout>
@@ -451,10 +454,86 @@ private:
     bool m_collapsed = false;
 };
 
+// Themed title bar drawn inside the (frameless) window so it matches the content.
+// Dragging, snapping and edge resizing are done natively through WM_NCHITTEST (see frameHitTest).
+class TitleBar : public QWidget {
+    Q_OBJECT
+public:
+    TitleBar(QMainWindow* window, bool canMinMax) : QWidget(window), m_window(window) {
+        setObjectName("titleBar");
+        setAttribute(Qt::WA_StyledBackground, true);
+        auto* lay = new QHBoxLayout(this);
+        lay->setContentsMargins(10, 0, 0, 0);
+        lay->setSpacing(8);
+        auto* icon = new QLabel(this);
+        icon->setPixmap(window->windowIcon().pixmap(16, 16));
+        m_title = new QLabel(window->windowTitle(), this);
+        m_title->setObjectName("titleBarText");
+        connect(window, &QWidget::windowTitleChanged, m_title, &QLabel::setText);
+        lay->addWidget(icon);
+        lay->addWidget(m_title);
+        lay->addStretch(1);
+        if (canMinMax) {
+            lay->addWidget(makeButton(QString(QChar(0xE921)), [window]() { window->showMinimized(); }, "titleBtn"));
+            m_max = makeButton(QString(QChar(0xE922)), [window]() {
+                if (window->isMaximized()) window->showNormal(); else window->showMaximized();
+            }, "titleBtn");
+            lay->addWidget(m_max);
+        }
+        lay->addWidget(makeButton(QString(QChar(0xE8BB)), [window]() { window->close(); }, "titleBtnClose"));
+        setFixedHeight(32);
+        window->installEventFilter(this);
+    }
+
+    void setTheme(bool light) {
+        const QString fg = light ? "#1E1E2E" : "#E6E6F0";
+        const QString hover = light ? "rgba(0,0,0,25)" : "rgba(255,255,255,30)";
+        setStyleSheet(QString(
+            "#titleBar { background: transparent; }"
+            "#titleBarText { color: %1; background: transparent; }"
+            "QPushButton#titleBtn, QPushButton#titleBtnClose { border: none; border-radius: 0; background: transparent;"
+            " color: %1; font-family: 'Segoe MDL2 Assets'; font-size: 10px; padding-bottom: 12px; }"
+            "QPushButton#titleBtn:hover { background: %2; }"
+            "QPushButton#titleBtnClose:hover { background: #E81123; color: white; }").arg(fg, hover));
+    }
+
+protected:
+    bool eventFilter(QObject* o, QEvent* e) override {
+        if (o == m_window && e->type() == QEvent::WindowStateChange && m_max)
+            m_max->setText(QString(QChar(m_window->isMaximized() ? 0xE923 : 0xE922)));
+        return QWidget::eventFilter(o, e);
+    }
+
+private:
+    template <typename F>
+    QPushButton* makeButton(const QString& glyph, F onClick, const char* name) {
+        auto* b = new QPushButton(glyph, this);
+        b->setObjectName(name);
+        b->setFocusPolicy(Qt::NoFocus);
+        b->setFixedSize(46, 32);
+        connect(b, &QPushButton::clicked, this, onClick);
+        return b;
+    }
+
+    QMainWindow* m_window;
+    QLabel* m_title = nullptr;
+    QPushButton* m_max = nullptr;
+};
+
+// Native hit-testing for a frameless window: edge/corner resize and title-bar drag.
+bool frameHitTest(QWidget* window, QWidget* titleBar, void* message, qintptr* result);
+
 class SettingsWindow : public QMainWindow {
 public:
-    explicit SettingsWindow(QWidget* parent = nullptr) : QMainWindow(parent) {}
+    explicit SettingsWindow(QWidget* parent = nullptr) : QMainWindow(parent, Qt::Window | Qt::FramelessWindowHint) {}
     Ui::SettingsWindow *ui = nullptr;
+    TitleBar* titleBar = nullptr;
+
+protected:
+    bool nativeEvent(const QByteArray& type, void* message, qintptr* result) override {
+        if (titleBar && frameHitTest(this, titleBar, message, result)) return true;
+        return QMainWindow::nativeEvent(type, message, result);
+    }
 };
 
 class GuiWindow : public QMainWindow {
@@ -465,6 +544,10 @@ public:
     bool OpenWin();
 
 protected:
+    bool nativeEvent(const QByteArray& type, void* message, qintptr* result) override {
+        if (m_titleBar && frameHitTest(this, m_titleBar, message, result)) return true;
+        return QMainWindow::nativeEvent(type, message, result);
+    }
     void closeEvent(QCloseEvent* event) override;
 
 private slots:
@@ -512,5 +595,6 @@ private:
     Ui::GuiWindow *ui;
     SettingsWindow* m_settingsWindow;
     QString m_darkStyleSheet;
+    TitleBar* m_titleBar = nullptr;
 };
 #endif //AMDFANSENSORS_WINDOW_H
