@@ -534,6 +534,28 @@ protected:
         if (titleBar && frameHitTest(this, titleBar, message, result)) return true;
         return QMainWindow::nativeEvent(type, message, result);
     }
+
+    // Remember where the user left the window. Saved only once it has been shown, so
+    // closing the app without ever opening Settings can't overwrite the stored position.
+    void hideEvent(QHideEvent* e) override {
+        QMainWindow::hideEvent(e);
+        saveGeometryToSettings();
+    }
+
+public:
+    void saveGeometryToSettings() {
+        if (!m_shown) return;
+        QSettings("AmdFanSensors", "AmdFanSensors").setValue("settingsWindowGeometry", saveGeometry());
+    }
+
+protected:
+    void showEvent(QShowEvent* e) override {
+        QMainWindow::showEvent(e);
+        m_shown = true;
+    }
+
+private:
+    bool m_shown = false;
 };
 
 class GuiWindow : public QMainWindow {
@@ -596,5 +618,6 @@ private:
     SettingsWindow* m_settingsWindow;
     QString m_darkStyleSheet;
     TitleBar* m_titleBar = nullptr;
+    bool m_settingsGeometryRestored = false;
 };
 #endif //AMDFANSENSORS_WINDOW_H

@@ -368,11 +368,6 @@ GuiWindow::GuiWindow(GpuManager& manager, QWidget* parent)
         s.setValue("stayOnTop", checked);
     });
 
-    // Restore saved geometry of the Settings window (applies on its next open).
-    const QByteArray settingsGeometry = settings.value("settingsWindowGeometry").toByteArray();
-    if (!settingsGeometry.isEmpty())
-        m_settingsWindow->restoreGeometry(settingsGeometry);
-
     // Restore saved collapsed states of the collapsible group boxes.
     for (const QString& name : { QStringLiteral("m_hardwareGroup"), QStringLiteral("m_controlGroup"),
                                   QStringLiteral("m_fpsGroup"), QStringLiteral("m_windowGroup"),
@@ -515,7 +510,7 @@ void GuiWindow::closeEvent(QCloseEvent* event) {
     QSettings s("AmdFanSensors", "AmdFanSensors");
     s.setValue("windowGeometry", saveGeometry());
     if (m_settingsWindow)
-        s.setValue("settingsWindowGeometry", m_settingsWindow->saveGeometry());
+        m_settingsWindow->saveGeometryToSettings();
     event->accept();
 }
 
@@ -718,7 +713,15 @@ void GuiWindow::onFpsRefreshSliderChanged(int value) {
 }
 
 void GuiWindow::onOpenSettings() {
+    const bool firstOpen = !m_settingsGeometryRestored;
     m_settingsWindow->show();
+    // Restore the saved position after the first show; setting it earlier gets overridden by the platform.
+    if (firstOpen) {
+        m_settingsGeometryRestored = true;
+        const QByteArray g = QSettings("AmdFanSensors", "AmdFanSensors").value("settingsWindowGeometry").toByteArray();
+        if (!g.isEmpty())
+            m_settingsWindow->restoreGeometry(g);
+    }
     m_settingsWindow->raise();
     m_settingsWindow->activateWindow();
 }
